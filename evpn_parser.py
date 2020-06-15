@@ -2,6 +2,9 @@ import socket
 import struct
 import sys
 
+class ELK:
+    pass
+
 marker = b'\xff' * 16
 
 bgp_message_type = {
