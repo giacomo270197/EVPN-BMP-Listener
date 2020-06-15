@@ -58,9 +58,9 @@ def parse():
     while True:
         with lock:
             if blob:
-                to_send = to_parse + blob
+                to_parse = to_parse + blob
                 blob = b''
-        if to_send:
+        if to_parse:
             leftovers = evpn_parser.run(to_parse)
             to_parse = to_parse[-leftovers:]
 
