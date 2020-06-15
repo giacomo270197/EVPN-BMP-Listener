@@ -5,10 +5,12 @@ import sys
 import evpn_parser
 import threading
 from queue import Queue
+import requests
 
 lock = threading.Lock()
 
 blob = b''
+
 
 def accept_wrapper(sock, sel):
     conn, addr = sock.accept()  # Should be ready to read
@@ -65,10 +67,14 @@ def parse():
             to_parse = to_parse[-leftovers:]
 
 
-
 if __name__ == "__main__":
-    host = sys.argv[1]              # Standard loopback interface address (localhost)
-    port = int(sys.argv[2])         # Port to listen on (non-privileged ports are > 1023)
+    # Standard loopback interface address (localhost)
+    host = sys.argv[1]
+    # Port to listen on (non-privileged ports are > 1023)
+    port = int(sys.argv[2])
+    index = "port{}".format(port)
+    requests.put(
+        "http://localhost:9200/{}?pretty".format(index))
     l = threading.Thread(target=listen, args=(host, port,))
     l.start()
     p = threading.Thread(target=parse, args=())

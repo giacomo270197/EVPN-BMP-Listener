@@ -2,6 +2,7 @@ import socket
 import struct
 import sys
 import json
+import requests
 
 
 class ELK:
@@ -330,7 +331,7 @@ def open_m(blob, pos, message):
     return pos
 
 
-def run(blob):
+def run(blob, index):
     cnt = 0
     new_start = 0
     while(blob.find(marker, cnt) != -1):
@@ -357,14 +358,15 @@ def run(blob):
             print("Unsupported message, ", bgp_message_type[message_type])
         new_start = pos
         cnt = pos + 1
-        print(message.get_json())
+        res = requests.post("http://localhost:9200/{}/_doc".format(index),
+                            json=message.message)
     return 0
 
 
 if __name__ == "__main__":
-    blob = b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x7c\x02\x00\x00\x00\x65\x40\x01\x01\x00\x50\x02\x00\x0a\x02\x02\xfa\x56\xed\xfd\xfa\x56\xed\xf3\xc0\x10\x20\x00\x02\xed\xf3\x00\x01\x8a\x8c\x00\x02\xed\xf3\x00\x06\x2a\x23\x03\x0c\x00\x00\x00\x00\x00\x08\x06\x03\x44\x38\x39\x00\x01\x02\x90\x0e\x00\x2c\x00\x19\x46\x04\x0a\x0a\x64\x01\x00\x02\x21\x00\x01\x0a\x0a\x0a\x01\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x30\x44\x38\x39\xff\x00\x21\x00\x00\x00\x00'
-    if len(sys.argv) > 1:
-        f = open(sys.argv[1], "rb")
-        blob = f.read()
-        f.close()
-    run(blob)
+    f = open(sys.argv[1], "rb")
+    blob = f.read()
+    f.close()
+    index = sys.argv[2]
+    requests.put("http://localhost:9200/{}?pretty".format(index))
+    run(blob, index)
