@@ -60,7 +60,7 @@ def parse():
             if blob:
                 to_parse = to_parse + blob
                 blob = b''
-        if to_parse:
+        if len(to_parse) > 1024:
             leftovers = evpn_parser.run(to_parse)
             to_parse = to_parse[-leftovers:]
 
