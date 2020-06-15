@@ -1,10 +1,82 @@
 import socket
 import struct
 import sys
+import json
+
 
 class ELK:
     logstash_host = ""
     logstash_port = ""
+
+
+class MessageBuilder:
+
+    def __init__(self):
+        self.message = {}
+
+    def set_bmp_common(self, version, message_length, message_type):
+        self.message.update({"BMP Header": {}})
+        self.message["BMP Header"].update({
+            "BMP Version": version,
+            "Message Length": message_length,
+            "Message Type": message_type
+        })
+
+    def set_bmp_per_peer(self, peer_type, flags, peer_distinguisher, address, asn, bgp_id, timestamp_sec, timestamp_msec):
+        self.message["BMP Header"].update({
+            "Peer Type": peer_type,
+            "Flags": flags,
+            "Peer Distinguisher": peer_distinguisher,
+            "Address": address,
+            "AS Number": asn,
+            "BGP ID": bgp_id,
+            "Timestamp (s)": timestamp_sec,
+            "Timestamp (ms)": timestamp_msec
+        })
+
+    def set_bgp_basics(self, length, message_type):
+        self.message.update({"BGP Message": {}})
+        self.message["BGP Message"].update({
+            "Message Type": message_type,
+            "Length": length
+        })
+
+    def set_bgp_notification(self, error_code, error_subcode):
+        self.message["BGP Message"].update({"Notification": {}})
+        self.message["BGP Message"]["Notification"].update({
+            "Error Code": error_code,
+            "Error Subcode": error_subcode
+        })
+
+    def set_bgp_open(self, bgp_version, my_as, hold_time, bgp_identifier):
+        peer = None
+        if not "Open" in self.message["BGP Message"]:
+            peer = "Peer One"
+            self.message["BGP Message"].update({"Open": {"Peer One": {}}})
+        else:
+            peer = "Peer Two"
+            self.message["BGP Message"]["Open"].update({"Peer Two": {}})
+        self.message["BGP Message"]["Open"][peer].update({
+            "BGP Version": bgp_version,
+            "AS Number": my_as,
+            "BGP Identifier": bgp_identifier,
+        })
+
+    def set_bgp_update(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label):
+        self.message["BGP Message"].update({"Update": {}})
+        self.message["BGP Message"]["Update"].update({
+            "Route Distinguisher": route_distinguisher,
+            "ESI": esi,
+            "Ethernet Tag ID": ethernet_tag_id,
+            "MAC Address": mac_address,
+            "IP Address": ip_address,
+            "MPLS Label": mpls_label
+        })
+        pass
+
+    def get_json(self):
+        return json.dumps(self.message, indent=2)
+
 
 marker = b'\xff' * 16
 
@@ -18,7 +90,7 @@ bgp_message_type = {
 
 bgp_path_attributes = {
     1: 	    "ORIGIN",
-    2: 	    "AS_PATH",	
+    2: 	    "AS_PATH",
     3: 	    "NEXT_HOP",
     4: 	    "MULTI_EXIT_DISC",
     5: 	    "LOCAL_PREF",
@@ -68,13 +140,15 @@ bgp_notification_types = {
 # def int_to_IP(num):
 #     return socket.inet_ntoa(struct.pack("!I", num))
 
+
 def bytes_to_IP(num):
     num = num.split(" ")
     if len(num) == 4:
         tmp = [str(int(x.replace("0x", ""), 16)) for x in num]
         return ".".join(tmp)
     if len(num) == 6:
-        tmp = [x.replace("0x", "") if len(x.replace("0x", "")) == 2 else "0" + x.replace("0x", "")  for x in num]
+        tmp = [x.replace("0x", "") if len(x.replace("0x", ""))
+               == 2 else "0" + x.replace("0x", "") for x in num]
         return ":".join(tmp)
     if len(num) == 8:
         tmp = [str(int(x.replace("0x", ""), 16)) for x in num]
@@ -82,18 +156,22 @@ def bytes_to_IP(num):
     elif len(num) == 16:
         tmp = []
         for x in range(0, len(num), 2):
-            f = "0" + num[x].replace("0x", "") if len(num[x].replace("0x", "")) == 1 else num[x].replace("0x", "")
-            s = "0" + num[x+1].replace("0x", "") if len(num[x+1].replace("0x", "")) == 1 else num[x+1].replace("0x", "")
+            f = "0" + num[x].replace("0x", "") if len(num[x].replace("0x", "")
+                                                      ) == 1 else num[x].replace("0x", "")
+            s = "0" + num[x+1].replace("0x", "") if len(
+                num[x+1].replace("0x", "")) == 1 else num[x+1].replace("0x", "")
             tmp.append("{}{}".format(f, s))
         return ":".join(tmp)
     else:
-        print("Unknown IP length") 
+        print("Unknown IP length")
+
 
 def route_byte_repr(num):
     ret = []
     for x in num:
         ret.append(hex(x))
     return " ".join(ret)
+
 
 def pull_bytes(blob, pos, amount):
     if amount > 0:
@@ -102,6 +180,7 @@ def pull_bytes(blob, pos, amount):
         return ret, pos
     else:
         return None, pos
+
 
 def pull_int(blob, pos, amount):
     if amount > 0:
@@ -115,22 +194,25 @@ def pull_int(blob, pos, amount):
     else:
         return 0, pos
 
-def parse_bmp_common_header(blob, pos):
+
+def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
-    print("\n#########################################\n")
-    try:
-        print("BMP Version: {}\nMessage Type: {}".format(version, bmp_message_types[message_type]))
-    except KeyError: # For some reason the first capture has a malformed BMP header
-        print("Failed!!!!")
+    # #print("\n#########################################\n")
+    # try:
+    #     print("BMP Version: {}\nMessage Type: {}".format(version, bmp_message_types[message_type]))
+    # except KeyError: # For some reason the first capture has a malformed BMP header
+    #     print("Failed!!!!")
+    message.set_bmp_common(version, message_length, message_type)
     return pos, message_type
 
-def parse_bmp_per_peer_header(blob, pos):
+
+def parse_bmp_per_peer_header(blob, pos, message):
     peer_type, pos = pull_int(blob, pos, 1)
-    flags , pos = pull_int(blob, pos, 1)
+    flags, pos = pull_int(blob, pos, 1)
     peer_distinguisher, pos = pull_bytes(blob, pos, 8)
-    if flags >= 128: # First bit set means IPv6
+    if flags >= 128:  # First bit set means IPv6
         address, pos = pull_bytes(blob, pos, 16)
     else:
         address, pos = pull_bytes(blob, pos, 4)
@@ -142,121 +224,142 @@ def parse_bmp_per_peer_header(blob, pos):
     #     bgp_id = bytes_to_IP(bgp_id)
     timestamp_sec, pos = pull_int(blob, pos, 4)
     timestamp_msec, pos = pull_int(blob, pos, 4)
-    print("Peer ID: {},\nASN: {},\nAddress:{}".format(bgp_id, asn, address))
+    message.set_bmp_per_peer(peer_type, flags, peer_distinguisher,
+                             address, asn, bgp_id, timestamp_sec, timestamp_msec)
+    # print("Peer ID: {},\nASN: {},\nAddress:{}".format(bgp_id, asn, address))
 
-def parse_bmp_header(blob):
+
+def parse_bmp_header(blob, message):
     pos = 0
-    pos, message_type = parse_bmp_common_header(blob[:6], pos)
-    if len(blob) > 6: # Meaning there is a per-peer-header too
-        parse_bmp_per_peer_header(blob[6:], pos)
-    return message_type
+    pos, message_type = parse_bmp_common_header(blob[:6], pos, message)
+    if len(blob) > 6:  # Meaning there is a per-peer-header too
+        parse_bmp_per_peer_header(blob[6:], pos, message)
 
-def mp_nlri(blob, pos, length, nlri):
+
+def mp_nlri(blob, pos, length, nlri, message):
     afi, pos = pull_int(blob, pos, 2)
     safi, pos = pull_int(blob, pos, 1)
     if afi != 25 or safi != 70:
-        return pos + length - 3 # Return pointer to next path attribute (minus bytes we already consumed)
+        # Return pointer to next path attribute (minus bytes we already consumed)
+        return pos + length - 3
     else:
         if nlri:
-            _, pos = pull_int(blob, pos, 5) # Network Address of Next Hop, is it really always 5-bytes in our case?
-            _, pos = pull_int(blob, pos, 1) # SNPA, is it really always 1-bytes in our case?
+            # Network Address of Next Hop, is it really always 5-bytes in our case?
+            _, pos = pull_int(blob, pos, 5)
+            # SNPA, is it really always 1-bytes in our case?
+            _, pos = pull_int(blob, pos, 1)
         evpn_type, pos = pull_int(blob, pos, 1)
         if evpn_route_types[evpn_type] == "MAC Advertisement Route":
             evpn_length, pos = pull_int(blob, pos, 1)
             route_distinguisher, pos = pull_bytes(blob, pos, 8)
+            route_distinguisher = bytes_to_IP(route_distinguisher)
             esi, pos = pull_int(blob, pos, 10)
             ethernet_tag_id, pos = pull_int(blob, pos, 4)
-            _, pos = pull_int(blob, pos, 1) # MAC length, assuming it is always 48-bits
+            # MAC length, assuming it is always 48-bits
+            _, pos = pull_int(blob, pos, 1)
             mac_address, pos = pull_bytes(blob, pos, 6)
             if mac_address:
                 mac_address = bytes_to_IP(mac_address)
-            ip_length, pos = pull_int(blob, pos, 1) # IP length, and MPLS label
+            # IP length, and MPLS label
+            ip_length, pos = pull_int(blob, pos, 1)
             ip_address, pos = pull_bytes(blob, pos, int(ip_length / 8))
             if ip_address:
                 ip_address = bytes_to_IP(ip_address)
             mpls_label, pos = pull_bytes(blob, pos, 3)
             # print("\n#########################################\n")
-            print("New MAC advertisement route ({}).\nRoute distinguisher: {},\nMAC Address: {},\nIP Address: {},\nMPLS Label: {}".format(\
-                "New Route" if nlri else "Withdrawn", bytes_to_IP(route_distinguisher), mac_address, ip_address, mpls_label))
-            print("\n#########################################\n")
+            # print("New MAC advertisement route ({}).\nRoute distinguisher: {},\nMAC Address: {},\nIP Address: {},\nMPLS Label: {}".format(
+            #     "New Route" if nlri else "Withdrawn", route_distinguisher, mac_address, ip_address, mpls_label))
+            # print("\n#########################################\n")
+            message.set_bgp_update(
+                route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label)
         return pos
 
-def parse_path_attribute(blob, pos):
+
+def parse_path_attribute(blob, pos, message):
     _, pos = pull_int(blob, pos, 1)
     path_attribute_type, pos = pull_int(blob, pos, 1)
     if bgp_path_attributes[path_attribute_type] in single_length_path_attributes:
-        length, pos =  pull_int(blob, pos, 1)
+        length, pos = pull_int(blob, pos, 1)
     elif bgp_path_attributes[path_attribute_type] in double_length_path_attributes:
-        length, pos =  pull_int(blob, pos, 2)
+        length, pos = pull_int(blob, pos, 2)
     else:
-        print("Unkown length attribute", bgp_path_attributes[path_attribute_type])
+        print("Unkown length attribute",
+              bgp_path_attributes[path_attribute_type])
         exit()
     if bgp_path_attributes[path_attribute_type] == "MP_REACH_NLRI":
-        pos = mp_nlri(blob, pos, length, True)
+        pos = mp_nlri(blob, pos, length, True, message)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
-        pos = mp_nlri(blob, pos, length, False)
+        pos = mp_nlri(blob, pos, length, False, message)
     else:
-        pos += length # Return pointer to next path attribute
+        pos += length  # Return pointer to next path attribute
     return pos
 
-def update(blob, pos):
-        _, pos = pull_int(blob, pos, 2)
-        path_attributes_length, pos = pull_int(blob, pos, 2)
-        drawn = 0
-        while(drawn < path_attributes_length):
-            new_pos = parse_path_attribute(blob, pos)
-            drawn += new_pos - pos
-            pos = new_pos
-        return pos
 
-def notification(blob, pos):
+def update(blob, pos, message):
+    _, pos = pull_int(blob, pos, 2)
+    path_attributes_length, pos = pull_int(blob, pos, 2)
+    drawn = 0
+    while(drawn < path_attributes_length):
+        new_pos = parse_path_attribute(blob, pos, message)
+        drawn += new_pos - pos
+        pos = new_pos
+    return pos
+
+
+def notification(blob, pos, message):
     error_code, pos = pull_int(blob, pos, 1)
     error_subcode, pos = pull_int(blob, pos, 1)
     if bgp_notification_types[error_code] == "Cease":
-        print("NOTIFICATION RECEIVED, Peer Down")
+        message.set_bgp_notification(error_code, error_subcode)
     else:
         print("NOTIFICATION RECEIVED, unsupported type {}".format(error_code))
-    print("\n#########################################\n")
     return pos
 
-def open_m(blob, pos):
+
+def open_m(blob, pos, message):
     bgp_version, pos = pull_int(blob, pos, 1)
     my_as, pos = pull_int(blob, pos, 2)
     hold_time, pos = pull_int(blob, pos, 2)
     bgp_identifier, pos = pull_bytes(blob, pos, 4)
+    bgp_identifier = bytes_to_IP(bgp_identifier)
     optional_parameters_length, pos = pull_int(blob, pos, 1)
-    pos += optional_parameters_length # Skipping parameters for now
-    print("BGP Version: {},\nAS Number:{},\nBGP Identifier: {}".format(bgp_version, my_as, bytes_to_IP(bgp_identifier))) # bytes_to_IP(bgp_identifier)
+    pos += optional_parameters_length  # Skipping parameters for now
+    # print("BGP Version: {},\nAS Number:{},\nBGP Identifier: {}".format(
+    #     bgp_version, my_as, bytes_to_IP(bgp_identifier)))  # bytes_to_IP(bgp_identifier)
+    message.set_bgp_open(bgp_version, my_as, hold_time, bgp_identifier)
     return pos
+
 
 def run(blob):
     cnt = 0
-    messages = [] # Use somehow 
     new_start = 0
     while(blob.find(marker, cnt) != -1):
+        message = MessageBuilder()
         pos = blob.find(marker, cnt)
-        tmp = pos
         _, pos = pull_int(blob, pos, 16)
         message_length, pos = pull_int(blob, pos, 2)
         if len(blob) < pos + message_length:
             return len(blob) - pos
         message_type, pos = pull_int(blob, pos, 1)
-        bmp_message_type = parse_bmp_header(blob[new_start:pos])  # Slows execution down considerably
+        message.set_bgp_basics(message_length, bgp_message_type[message_type])
+        # Slows execution down considerably
+        parse_bmp_header(blob[new_start:pos], message)
         if bgp_message_type[message_type] == "UPDATE":
-            pos = update(blob, pos)
+            pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
-            parse_bmp_header(blob[new_start:pos])  # Slows execution down considerably
-            pos = notification(blob, pos)
+            pos = notification(blob, pos, message)
         elif bgp_message_type[message_type] == "OPEN":
-            pos = open_m(blob, pos)
+            pos = open_m(blob, pos, message)
             _, pos = pull_int(blob, pos, 19)
-            pos = open_m(blob, pos)
-            print("\n#########################################\n")
+            pos = open_m(blob, pos, message)
+            #   print("\n#########################################\n")
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
         new_start = pos
         cnt = pos + 1
+        print(message.get_json())
     return 0
+
 
 if __name__ == "__main__":
     blob = b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x7c\x02\x00\x00\x00\x65\x40\x01\x01\x00\x50\x02\x00\x0a\x02\x02\xfa\x56\xed\xfd\xfa\x56\xed\xf3\xc0\x10\x20\x00\x02\xed\xf3\x00\x01\x8a\x8c\x00\x02\xed\xf3\x00\x06\x2a\x23\x03\x0c\x00\x00\x00\x00\x00\x08\x06\x03\x44\x38\x39\x00\x01\x02\x90\x0e\x00\x2c\x00\x19\x46\x04\x0a\x0a\x64\x01\x00\x02\x21\x00\x01\x0a\x0a\x0a\x01\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x30\x44\x38\x39\xff\x00\x21\x00\x00\x00\x00'
@@ -265,5 +368,3 @@ if __name__ == "__main__":
         blob = f.read()
         f.close()
     run(blob)
-    
-
