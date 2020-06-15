@@ -3,7 +3,8 @@ import struct
 import sys
 
 class ELK:
-    pass
+    logstash_host = ""
+    logstash_port = ""
 
 marker = b'\xff' * 16
 
