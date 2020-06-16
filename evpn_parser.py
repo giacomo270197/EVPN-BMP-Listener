@@ -353,7 +353,6 @@ def run(blob, index):
             pos = open_m(blob, pos, message)
             _, pos = pull_int(blob, pos, 19)
             pos = open_m(blob, pos, message)
-            #   print("\n#########################################\n")
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
         new_start = pos
