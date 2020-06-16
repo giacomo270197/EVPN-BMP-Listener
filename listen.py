@@ -53,7 +53,7 @@ def listen(host, port):
                 service_connection(key, mask, sel)
 
 
-def parse():
+def parse(index):
     global blob
     global lock
     to_parse = b''
@@ -63,7 +63,7 @@ def parse():
                 to_parse = to_parse + blob
                 blob = b''
         if len(to_parse) > 1024:
-            leftovers = evpn_parser.run(to_parse)
+            leftovers = evpn_parser.run(to_parse, index)
             to_parse = to_parse[-leftovers:]
 
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     index = "port{}".format(port)
     requests.put(
         "http://localhost:9200/{}?pretty".format(index))
-    l = threading.Thread(target=listen, args=(host, port,))
+    l = threading.Thread(target=listen, args=(host, port))
     l.start()
-    p = threading.Thread(target=parse, args=())
+    p = threading.Thread(target=parse, args=(index,))
     p.start()
