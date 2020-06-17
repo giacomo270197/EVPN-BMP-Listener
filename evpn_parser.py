@@ -380,7 +380,7 @@ def mp_nlri(blob, pos, length, nlri, message):
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
         elif evpn_route_types[evpn_type] == "IP prefix Route":
             print("We have prefix route, left ",  evpn_length - 24)
-            if evpn_length - 24 > 9:
+            if evpn_length - 22 < 12:
                 ip_prefix_length, pos = pull_int(blob, pos, 1)
                 ip_address, pos = pull_bytes(blob, pos, 4)
                 ip_address = bytes_to_IP(ip_address)
