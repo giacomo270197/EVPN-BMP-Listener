@@ -5,11 +5,6 @@ import json
 import requests
 
 
-class ELK:
-    logstash_host = ""
-    logstash_port = ""
-
-
 class MessageBuilder:
 
     def __init__(self):
@@ -63,8 +58,10 @@ class MessageBuilder:
             "BGP Identifier": bgp_identifier,
         })
 
-    def set_bgp_update(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label):
+    def set_bgp_update(self):
         self.message["BGP Message"].update({"Update": {}})
+
+    def set_bgp_nlri(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label):
         self.message["BGP Message"]["Update"].update({
             "Route Distinguisher": route_distinguisher,
             "ESI": esi,
@@ -73,7 +70,18 @@ class MessageBuilder:
             "IP Address": ip_address,
             "MPLS Label": mpls_label
         })
-        pass
+
+    def set_bgp_extended_community(self):
+        self.message["BGP Message"]["Update"].update(
+            {"Extended Communities": []})
+
+    def set_bgp_extended_community_entry(self, ec_type, ec_subtype, global_adm, local_adm):
+        self.message["BGP Message"]["Update"]["Extended Communities"].append({
+            "Type": ec_type,
+            "Subtype": ec_subtype,
+            "Global Administration": global_adm,
+            "Local Administration": local_adm
+        })
 
     def get_json(self):
         return json.dumps(self.message, indent=2)
@@ -138,8 +146,72 @@ bgp_notification_types = {
     6: "Cease"
 }
 
-# def int_to_IP(num):
-#     return socket.inet_ntoa(struct.pack("!I", num))
+bgp_extended_communities_evpn_subtypes = {
+    0: "MAC Mobility",
+    1: "ESI Label",
+    2: "ES-Import Route Target",
+    3: "EVPN Router’s MAC Extended Community",
+    4: "EVPN Layer 2 Attributes",
+    5: "E-Tree Extended Community",
+    6: "DF Election Extended Community",
+    7: "I-SID Extended Community",
+    8: "ND Extended Community",
+    9: "Multicast Flags Extended Community",
+    10: "EVI-RT Type 0 Extended Community",
+    11: "EVI-RT Type 1 Extended Community",
+    12: "EVI-RT Type 2 Extended Community",
+    13: "EVI-RT Type 3 Extended Community",
+    14: "EVPN Attachment Circuit Extended Community",
+    15: "Service Carving Timestamp"
+}
+
+bgp_extended_communities_two_octect_subtypes = {
+    2: "Route Target",
+    3: "Route Origin",
+    5: "OSPF Domain Identifier",
+    8: "BGP Data Collection",
+    9: "Source AS",
+    10: "L2VPN Identifier",
+    16: "Cisco VPN-Distinguisher",
+    19: "Route-Target Record"
+}
+
+bgp_extended_communities_four_octect_subtypes = {
+    2: "Route Target",
+    3: "Route Origin",
+    5: "OSPF Domain Identifier",
+    8: "BGP Data Collection",
+    9: "Source AS",
+    16: "Cisco VPN Identifier",
+    19: "Route-Target Record"
+}
+
+bgp_extended_communities_opaque = {
+    1: "Cost Community",
+    3: "CP-ORF",
+    4: "Extranet Source Extended Community",
+    5: "Extranet Separation Extended Community",
+    6: "OSPF Route Type",
+    7: "Additional PMSI Tunnel Attribute Flags",
+    8: "Context Label Space ID Extended Community",
+    11: "Color Extended Community",
+    12: "Encapsulation Extended Community",
+    13: "Default Gateway",
+    14: "Point-to-Point-to-Multipoint (PPMP) Label"
+}
+
+bpd_extended_communities_types = {
+    0: ("Transitive Two-Octet AS-Specific Extended Community", bgp_extended_communities_two_octect_subtypes),
+    1: ("Transitive IPv4-Address-Specific Extended Community", None),
+    2: ("Transitive Four-Octet AS-Specific Extended Community", bgp_extended_communities_four_octect_subtypes),
+    3: ("Transitive Opaque Extended Community", bgp_extended_communities_opaque),
+    4: ("QoS Marking", None),
+    5: ("CoS Capability", None),
+    6: ("EVPN", bgp_extended_communities_evpn_subtypes),
+    7: ("FlowSpec Transitive Extended Communities", None),
+    8: ("Flow spec redirect/mirror to IP next-hop", None),
+    9: ("FlowSpec Redirect to indirection-id Extended Community", None)
+}
 
 
 def bytes_to_IP(num):
@@ -200,11 +272,6 @@ def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
-    # #print("\n#########################################\n")
-    # try:
-    #     print("BMP Version: {}\nMessage Type: {}".format(version, bmp_message_types[message_type]))
-    # except KeyError: # For some reason the first capture has a malformed BMP header
-    #     print("Failed!!!!")
     message.set_bmp_common(version, message_length, message_type)
     return pos, message_type
 
@@ -221,13 +288,12 @@ def parse_bmp_per_peer_header(blob, pos, message):
         address = bytes_to_IP(address)
     asn, pos = pull_int(blob, pos, 4)
     bgp_id, pos = pull_bytes(blob, pos, 4)
-    # if bgp_id:
-    #     bgp_id = bytes_to_IP(bgp_id)
+    if bgp_id:
+        bgp_id = bytes_to_IP(bgp_id)
     timestamp_sec, pos = pull_int(blob, pos, 4)
     timestamp_msec, pos = pull_int(blob, pos, 4)
     message.set_bmp_per_peer(peer_type, flags, peer_distinguisher,
                              address, asn, bgp_id, timestamp_sec, timestamp_msec)
-    # print("Peer ID: {},\nASN: {},\nAddress:{}".format(bgp_id, asn, address))
 
 
 def parse_bmp_header(blob, message):
@@ -235,6 +301,24 @@ def parse_bmp_header(blob, message):
     pos, message_type = parse_bmp_common_header(blob[:6], pos, message)
     if len(blob) > 6:  # Meaning there is a per-peer-header too
         parse_bmp_per_peer_header(blob[6:], pos, message)
+
+
+def extended_communities(blob, pos, length, message):
+    number_of_communities = int(length / 8)
+    message.set_bgp_extended_community()
+    for community in range(number_of_communities):
+        ec_type, pos = pull_int(blob, pos, 1)
+        ec_subtype, pos = pull_int(blob, pos, 1)
+        ec_type, subtype_class = bpd_extended_communities_types[ec_type]
+        if subtype_class:
+            ec_subtype = subtype_class[ec_subtype]
+        else:
+            print("Subtype not recognized for EC type {}".format(ec_type))
+        global_adm, pos = pull_int(blob, pos, 2)
+        local_adm, pos = pull_int(blob, pos, 4)
+        message.set_bgp_extended_community_entry(
+            ec_type, ec_subtype, global_adm, local_adm)
+    return pos
 
 
 def mp_nlri(blob, pos, length, nlri, message):
@@ -267,11 +351,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             if ip_address:
                 ip_address = bytes_to_IP(ip_address)
             mpls_label, pos = pull_bytes(blob, pos, 3)
-            # print("\n#########################################\n")
-            # print("New MAC advertisement route ({}).\nRoute distinguisher: {},\nMAC Address: {},\nIP Address: {},\nMPLS Label: {}".format(
-            #     "New Route" if nlri else "Withdrawn", route_distinguisher, mac_address, ip_address, mpls_label))
-            # print("\n#########################################\n")
-            message.set_bgp_update(
+            message.set_bgp_nlri(
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label)
         return pos
 
@@ -291,12 +371,15 @@ def parse_path_attribute(blob, pos, message):
         pos = mp_nlri(blob, pos, length, True, message)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
         pos = mp_nlri(blob, pos, length, False, message)
+    elif bgp_path_attributes[path_attribute_type] == "EXTENDED COMMUNITIES":
+        pos = extended_communities(blob, pos, length, message)
     else:
         pos += length  # Return pointer to next path attribute
     return pos
 
 
 def update(blob, pos, message):
+    message.set_bgp_update()
     _, pos = pull_int(blob, pos, 2)
     path_attributes_length, pos = pull_int(blob, pos, 2)
     drawn = 0
@@ -325,8 +408,6 @@ def open_m(blob, pos, message):
     bgp_identifier = bytes_to_IP(bgp_identifier)
     optional_parameters_length, pos = pull_int(blob, pos, 1)
     pos += optional_parameters_length  # Skipping parameters for now
-    # print("BGP Version: {},\nAS Number:{},\nBGP Identifier: {}".format(
-    #     bgp_version, my_as, bytes_to_IP(bgp_identifier)))  # bytes_to_IP(bgp_identifier)
     message.set_bgp_open(bgp_version, my_as, hold_time, bgp_identifier)
     return pos
 
@@ -343,7 +424,6 @@ def run(blob, index):
             return len(blob) - pos
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        # Slows execution down considerably
         parse_bmp_header(blob[new_start:pos], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
@@ -357,8 +437,11 @@ def run(blob, index):
             print("Unsupported message, ", bgp_message_type[message_type])
         new_start = pos
         cnt = pos + 1
-        res = requests.post("http://localhost:9200/{}/_doc".format(index),
-                            json=message.message)
+        if __name__ == "__main__":
+            print(message.get_json())
+        else:
+            res = requests.post("http://localhost:9200/{}/_doc".format(index),
+                                json=message.message)
     return 0
 
 
@@ -366,6 +449,6 @@ if __name__ == "__main__":
     f = open(sys.argv[1], "rb")
     blob = f.read()
     f.close()
-    index = sys.argv[2]
-    requests.put("http://localhost:9200/{}?pretty".format(index))
-    run(blob, index)
+    # index = sys.argv[2]
+    # requests.put("http://localhost:9200/{}?pretty".format(index))
+    run(blob, "")
