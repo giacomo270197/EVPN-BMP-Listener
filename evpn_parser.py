@@ -379,18 +379,18 @@ def mp_nlri(blob, pos, length, nlri, message):
             message.set_bgp_nlri_mac(
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
         elif evpn_route_types[evpn_type] == "IP prefix Route":
-            if evpn_length - 24 > 9:
-                ip_prefix_length, pos = pull_int(blob, pos, 1)
-                ip_address, pos = pull_bytes(blob, pos, 4)
-                ip_address = bytes_to_IP(ip_address)
-                ip_gateway, pos = pull_bytes(blob, pos, 4)
-                ip_gateway = bytes_to_IP(ip_gateway)
-            else:
-                ip_prefix_length, pos = pull_int(blob, pos, 1)
-                ip_address, pos = pull_bytes(blob, pos, 16)
-                ip_address = bytes_to_IP(ip_address)
-                ip_gateway, pos = pull_bytes(blob, pos, 16)
-                ip_gateway = bytes_to_IP(ip_gateway)
+            # if evpn_length - 24 > 9:
+            ip_prefix_length, pos = pull_int(blob, pos, 1)
+            ip_address, pos = pull_bytes(blob, pos, 4)
+            ip_address = bytes_to_IP(ip_address)
+            ip_gateway, pos = pull_bytes(blob, pos, 4)
+            ip_gateway = bytes_to_IP(ip_gateway)
+            # else:
+            #     ip_prefix_length, pos = pull_int(blob, pos, 1)
+            #     ip_address, pos = pull_bytes(blob, pos, 16)
+            #     ip_address = bytes_to_IP(ip_address)
+            #     ip_gateway, pos = pull_bytes(blob, pos, 16)
+            #     ip_gateway = bytes_to_IP(ip_gateway)
             mpls_label, pos = pull_bytes(blob, pos, 3)
             message.set_bgp_nlri_ip(
                 route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
