@@ -280,6 +280,7 @@ def pull_int(blob, pos, amount):
 def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
     if version != 3:
+        print("Out of sync, aborting")
         exit("Out of sync, aborting")
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
