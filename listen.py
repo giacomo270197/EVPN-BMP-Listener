@@ -68,6 +68,7 @@ def parse(index):
             print("Starting parse run")
             leftovers = evpn_parser.run(to_parse, index)
             to_parse = to_parse[-leftovers:]
+            print("Parsed: {} left".format(leftovers))
 
 
 if __name__ == "__main__":
