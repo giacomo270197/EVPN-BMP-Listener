@@ -296,7 +296,7 @@ def parse_bmp_common_header(blob, pos, message):
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
     message.set_bmp_common(version, message_length, message_type)
-    return pos, message_type
+    return pos
 
 
 def parse_bmp_per_peer_header(blob, pos, message):
@@ -321,9 +321,9 @@ def parse_bmp_per_peer_header(blob, pos, message):
 
 def parse_bmp_header(blob, message):
     pos = 0
-    pos, message_type = parse_bmp_common_header(blob[:6], pos, message)
+    pos = parse_bmp_common_header(blob[:6], pos, message)
     if len(blob) > 6:  # Meaning there is a per-peer-header too
-        parse_bmp_per_peer_header(blob[6:], pos, message)
+        parse_bmp_per_peer_header(blob, pos, message)
 
 
 def extended_communities(blob, pos, length, message):
