@@ -1,15 +1,27 @@
-import selectors
-import socket
-import types
-import sys
 import evpn_parser
-import threading
-from queue import Queue
 import requests
+import selectors
+import signal
+import socket
+import sys
+import threading
+import types
+from queue import Queue
 
 lock = threading.Lock()
-lsock = None
+sock = None
 blob = b''
+
+
+def cleanup(sig, frame):
+    global sock
+    try:
+        sock.shutdown()
+        sock.close()
+    except:
+        pass
+    finally:
+        sys.exit()
 
 
 def accept_wrapper(sock, sel):
@@ -37,9 +49,9 @@ def service_connection(key, mask, sel):
 
 
 def listen(host, port):
-    global lsock
+    global sock
     sel = selectors.DefaultSelector()
-    sel.register(lsock, selectors.EVENT_READ, data=None)
+    sel.register(sock, selectors.EVENT_READ, data=None)
     while True:
         events = sel.select(timeout=None)
         for key, mask in events:
@@ -73,11 +85,14 @@ if __name__ == "__main__":
     # Port to listen on (non-privileged ports are > 1023)
     port = int(sys.argv[2])
 
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind((host, port))
-    lsock.listen()
-    lsock.setblocking(False)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((host, port))
+    sock.listen()
+    sock.setblocking(False)
     print('listening on', (host, port))
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
 
     index = "port{}".format(port)
     requests.put(
