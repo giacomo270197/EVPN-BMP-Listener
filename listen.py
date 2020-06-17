@@ -8,7 +8,7 @@ from queue import Queue
 import requests
 
 lock = threading.Lock()
-
+lsock = None
 blob = b''
 
 
@@ -37,12 +37,8 @@ def service_connection(key, mask, sel):
 
 
 def listen(host, port):
+    global lsock
     sel = selectors.DefaultSelector()
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind((host, port))
-    lsock.listen()
-    print('listening on', (host, port))
-    lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
     while True:
         events = sel.select(timeout=None)
@@ -76,10 +72,16 @@ if __name__ == "__main__":
     host = sys.argv[1]
     # Port to listen on (non-privileged ports are > 1023)
     port = int(sys.argv[2])
+
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lsock.bind((host, port))
+    lsock.listen()
+    lsock.setblocking(False)
+    print('listening on', (host, port))
+
     index = "port{}".format(port)
     requests.put(
         "http://localhost:9200/{}?pretty".format(index))
-    l = threading.Thread(target=listen, args=(host, port))
-    l.start()
-    p = threading.Thread(target=parse, args=(index,))
-    p.start()
+
+    threading.Thread(target=listen, args=(host, port)).start()
+    threading.Thread(target=parse, args=(index,)).start()
