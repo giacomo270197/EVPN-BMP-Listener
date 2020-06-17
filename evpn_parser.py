@@ -470,10 +470,11 @@ def run(blob, index):
     while(blob.find(marker, cnt) != -1):
         message = MessageBuilder()
         pos = blob.find(marker, cnt)
+        roll_back = pos
         _, pos = pull_int(blob, pos, 16)
         message_length, pos = pull_int(blob, pos, 2)
-        if len(blob) < pos + message_length:
-            return len(blob) - pos
+        if len(blob) < roll_back + message_length:
+            return len(blob) - roll_back
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
         parse_bmp_header(blob[new_start:pos], message)
