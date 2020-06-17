@@ -369,6 +369,8 @@ def mp_nlri(blob, pos, length, nlri, message):
         else:
             print("Unsupported advertisement type: {}".format(
                 evpn_route_types[evpn_type]))
+            # Return pointer to next path attribute (minus bytes we already consumed)
+            return pos + length - 10
         return pos
 
 
