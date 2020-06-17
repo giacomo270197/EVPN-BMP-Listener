@@ -448,6 +448,7 @@ def run(blob, index):
         if __name__ == "__main__":
             print(message.get_json())
         else:
+            print("Pushing JSON")
             res = requests.post("http://localhost:9200/{}/_doc".format(index),
                                 json=message.message)
     return 0
