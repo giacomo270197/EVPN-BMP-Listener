@@ -61,8 +61,9 @@ class MessageBuilder:
     def set_bgp_update(self):
         self.message["BGP Message"].update({"Update": {}})
 
-    def set_bgp_nlri(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label):
+    def set_bgp_nlri(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
         self.message["BGP Message"]["Update"].update({
+            "Type": "New Route" if nlri else "Withdrawn",
             "Route Distinguisher": route_distinguisher,
             "ESI": esi,
             "Ethernet Tag ID": ethernet_tag_id,
@@ -352,7 +353,7 @@ def mp_nlri(blob, pos, length, nlri, message):
                 ip_address = bytes_to_IP(ip_address)
             mpls_label, pos = pull_bytes(blob, pos, 3)
             message.set_bgp_nlri(
-                route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label)
+                route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
         return pos
 
 
