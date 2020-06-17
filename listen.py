@@ -58,7 +58,8 @@ def parse(index):
     global lock
     to_parse = b''
     while True:
-        print(len(blob))
+        if len(blob) != 0:
+            print(len(blob))
         with lock:
             if blob:
                 to_parse = to_parse + blob
