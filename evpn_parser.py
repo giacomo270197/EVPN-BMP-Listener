@@ -271,6 +271,8 @@ def pull_int(blob, pos, amount):
 
 def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
+    if version != 3:
+        exit("Out of sync, aborting")
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
     message.set_bmp_common(version, message_length, message_type)
@@ -305,6 +307,7 @@ def parse_bmp_header(blob, message):
 
 
 def extended_communities(blob, pos, length, message):
+    print("Received Extended Community")
     number_of_communities = int(length / 8)
     message.set_bgp_extended_community()
     for community in range(number_of_communities):
@@ -323,6 +326,7 @@ def extended_communities(blob, pos, length, message):
 
 
 def mp_nlri(blob, pos, length, nlri, message):
+    print("Received NLRI, {}".format("New" if nlri else "Withdrawn"))
     afi, pos = pull_int(blob, pos, 2)
     safi, pos = pull_int(blob, pos, 1)
     if afi != 25 or safi != 70:
@@ -380,6 +384,7 @@ def parse_path_attribute(blob, pos, message):
 
 
 def update(blob, pos, message):
+    print("Received Update")
     message.set_bgp_update()
     _, pos = pull_int(blob, pos, 2)
     path_attributes_length, pos = pull_int(blob, pos, 2)
@@ -392,6 +397,7 @@ def update(blob, pos, message):
 
 
 def notification(blob, pos, message):
+    print("Received Notification")
     error_code, pos = pull_int(blob, pos, 1)
     error_subcode, pos = pull_int(blob, pos, 1)
     if bgp_notification_types[error_code] == "Cease":
@@ -402,6 +408,7 @@ def notification(blob, pos, message):
 
 
 def open_m(blob, pos, message):
+    print("Received Open")
     bgp_version, pos = pull_int(blob, pos, 1)
     my_as, pos = pull_int(blob, pos, 2)
     hold_time, pos = pull_int(blob, pos, 2)
