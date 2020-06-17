@@ -141,7 +141,14 @@ single_length_path_attributes = {
 double_length_path_attributes = {"MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
 
 evpn_route_types = {
-    2: "MAC Advertisement Route"
+    1: "Ethernet Autodiscovery",
+    2: "MAC Advertisement Route",
+    3: "Inclusive Multicast Ethernet tag route",
+    4: "Ethernet segment Route",
+    5: "IP prefix Route",
+    6: "Selective Multicast Ethernet tag routes",
+    7: "NLRI to sync IGMP joins",
+    8: "NLRI to sync IGMP leaves"
 }
 
 bgp_notification_types = {
@@ -359,6 +366,9 @@ def mp_nlri(blob, pos, length, nlri, message):
             mpls_label, pos = pull_bytes(blob, pos, 3)
             message.set_bgp_nlri(
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
+        else:
+            print("Unsupported advertisement type: {}".format(
+                evpn_route_types[evpn_type]))
         return pos
 
 
