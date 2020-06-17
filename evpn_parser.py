@@ -136,7 +136,8 @@ bmp_message_types = {
     6: "Route Mirroring Message",
 }
 
-single_length_path_attributes = {"ORIGIN", "EXTENDED COMMUNITIES"}
+single_length_path_attributes = {
+    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC"}
 double_length_path_attributes = {"MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
 
 evpn_route_types = {
