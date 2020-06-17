@@ -104,3 +104,5 @@ if __name__ == "__main__":
     p = threading.Thread(target=parse, args=(index,))
     p.daemon = True
     p.start()
+    for t in [l, p]:
+        t.join()
