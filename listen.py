@@ -98,5 +98,9 @@ if __name__ == "__main__":
     requests.put(
         "http://localhost:9200/{}?pretty".format(index))
 
-    threading.Thread(target=listen, args=(host, port)).start()
-    threading.Thread(target=parse, args=(index,)).start()
+    l = threading.Thread(target=listen, args=(host, port))
+    l.daemon = True
+    l.start()
+    p = threading.Thread(target=parse, args=(index,))
+    p.daemon = True
+    p.start()
