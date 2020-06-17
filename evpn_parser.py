@@ -137,7 +137,7 @@ bmp_message_types = {
 }
 
 single_length_path_attributes = {
-    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC"}
+    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY"}
 double_length_path_attributes = {"MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
 
 evpn_route_types = {
