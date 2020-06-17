@@ -137,9 +137,9 @@ bmp_message_types = {
 }
 
 single_length_path_attributes = {
-    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC"}
+    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY"}
 double_length_path_attributes = {
-    "MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI", "COMMUNITY"}
+    "MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
 
 evpn_route_types = {
     1: "Ethernet Autodiscovery",
@@ -376,7 +376,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             print("Unsupported advertisement type: {}".format(
                 evpn_route_types[evpn_type]))
             # Return pointer to next path attribute (minus bytes we already consumed)
-            return pos + length - 10
+            return pos + length - 4
         return pos
 
 
