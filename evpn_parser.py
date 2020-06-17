@@ -474,7 +474,7 @@ def run(blob, index):
         _, pos = pull_int(blob, pos, 16)
         message_length, pos = pull_int(blob, pos, 2)
         if len(blob) < roll_back + message_length:
-            return len(blob) - roll_back
+            return len(blob) - new_start
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
         parse_bmp_header(blob[new_start:pos], message)
