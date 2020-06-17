@@ -437,15 +437,23 @@ def run(blob, index):
     cnt = 0
     new_start = 0
     while(blob.find(marker, cnt) != -1):
+        print("creating message instance")
         message = MessageBuilder()
+        print("looking for marker")
         pos = blob.find(marker, cnt)
+        print("shifting to after marker")
         _, pos = pull_int(blob, pos, 16)
+        print("getting message length")
         message_length, pos = pull_int(blob, pos, 2)
         if len(blob) < pos + message_length:
             return len(blob) - pos
+        print("pulling type")
         message_type, pos = pull_int(blob, pos, 1)
+        print("setting bgp basics")
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
+        print("parsing header")
         parse_bmp_header(blob[new_start:pos], message)
+        print("checking message type")
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
