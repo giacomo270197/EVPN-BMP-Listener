@@ -61,14 +61,27 @@ class MessageBuilder:
     def set_bgp_update(self):
         self.message["BGP Message"].update({"Update": {}})
 
-    def set_bgp_nlri(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
+    def set_bgp_nlri_mac(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
         self.message["BGP Message"]["Update"].update({
+            "EVPN Route Type": "MAC Advertisement",
             "Type": "New Route" if nlri else "Withdrawn",
             "Route Distinguisher": route_distinguisher,
             "ESI": esi,
             "Ethernet Tag ID": ethernet_tag_id,
             "MAC Address": mac_address,
             "IP Address": ip_address,
+            "MPLS Label": mpls_label
+        })
+
+    def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri):
+        self.message["BGP Message"]["Update"].update({
+            "EVPN Route Type": "IP Prefix Route",
+            "Type": "New Route" if nlri else "Withdrawn",
+            "Route Distinguisher": route_distinguisher,
+            "ESI": esi,
+            "Ethernet Tag ID": ethernet_tag_id,
+            "IP Address": ip_address,
+            "IP gateway": ip_gateway,
             "MPLS Label": mpls_label
         })
 
@@ -280,9 +293,6 @@ def pull_int(blob, pos, amount):
 
 def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
-    # if version != 3:
-    #     print("Out of sync, aborting")
-    #     exit("Out of sync, aborting")
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
     message.set_bmp_common(version, message_length, message_type)
@@ -311,13 +321,9 @@ def parse_bmp_per_peer_header(blob, pos, message):
 
 def parse_bmp_header(blob, message):
     pos = 0
-    print("parsing common headers pre")
     pos, message_type = parse_bmp_common_header(blob[:6], pos, message)
-    print("parsing common headers post")
     if len(blob) > 6:  # Meaning there is a per-peer-header too
-        print("parsing peer header pre")
         parse_bmp_per_peer_header(blob[6:], pos, message)
-        print("parsing peer header post")
 
 
 def extended_communities(blob, pos, length, message):
@@ -353,12 +359,12 @@ def mp_nlri(blob, pos, length, nlri, message):
             # SNPA, is it really always 1-bytes in our case?
             _, pos = pull_int(blob, pos, 1)
         evpn_type, pos = pull_int(blob, pos, 1)
+        evpn_length, pos = pull_int(blob, pos, 1)
+        route_distinguisher, pos = pull_bytes(blob, pos, 8)
+        route_distinguisher = bytes_to_IP(route_distinguisher)
+        esi, pos = pull_int(blob, pos, 10)
+        ethernet_tag_id, pos = pull_int(blob, pos, 4)
         if evpn_route_types[evpn_type] == "MAC Advertisement Route":
-            evpn_length, pos = pull_int(blob, pos, 1)
-            route_distinguisher, pos = pull_bytes(blob, pos, 8)
-            route_distinguisher = bytes_to_IP(route_distinguisher)
-            esi, pos = pull_int(blob, pos, 10)
-            ethernet_tag_id, pos = pull_int(blob, pos, 4)
             # MAC length, assuming it is always 48-bits
             _, pos = pull_int(blob, pos, 1)
             mac_address, pos = pull_bytes(blob, pos, 6)
@@ -370,8 +376,24 @@ def mp_nlri(blob, pos, length, nlri, message):
             if ip_address:
                 ip_address = bytes_to_IP(ip_address)
             mpls_label, pos = pull_bytes(blob, pos, 3)
-            message.set_bgp_nlri(
+            message.set_bgp_nlri_mac(
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
+        elif evpn_route_types[evpn_type] == "IP prefix Route":
+            if evpn_length - 24 > 9:
+                ip_prefix_length, pos = pull_int(blob, pos, 1)
+                ip_address, pos = pull_bytes(blob, pos, 4)
+                ip_address = bytes_to_IP(ip_address)
+                ip_gateway, pos = pull_bytes(blob, pos, 4)
+                ip_gateway = bytes_to_IP(ip_gateway)
+            else:
+                ip_prefix_length, pos = pull_int(blob, pos, 1)
+                ip_address, pos = pull_bytes(blob, pos, 16)
+                ip_address = bytes_to_IP(ip_address)
+                ip_gateway, pos = pull_bytes(blob, pos, 16)
+                ip_gateway = bytes_to_IP(ip_gateway)
+            mpls_label, pos = pull_bytes(blob, pos, 3)
+            message.set_bgp_nlri_ip(
+                route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
         else:
             print("Unsupported advertisement type: {}".format(
                 evpn_route_types[evpn_type]))
@@ -443,23 +465,15 @@ def run(blob, index):
     cnt = 0
     new_start = 0
     while(blob.find(marker, cnt) != -1):
-        print("creating message instance")
         message = MessageBuilder()
-        print("looking for marker")
         pos = blob.find(marker, cnt)
-        print("shifting to after marker")
         _, pos = pull_int(blob, pos, 16)
-        print("getting message length")
         message_length, pos = pull_int(blob, pos, 2)
         if len(blob) < pos + message_length:
             return len(blob) - pos
-        print("pulling type")
         message_type, pos = pull_int(blob, pos, 1)
-        print("setting bgp basics")
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        print("parsing header")
         parse_bmp_header(blob[new_start:pos], message)
-        print("checking message type")
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
