@@ -58,11 +58,12 @@ def parse(index):
     global lock
     to_parse = b''
     while True:
+        print(len(blob))
         with lock:
             if blob:
                 to_parse = to_parse + blob
                 blob = b''
-        if len(to_parse) > 1024:
+        if len(to_parse) > 256:
             print("Starting parse run")
             leftovers = evpn_parser.run(to_parse, index)
             to_parse = to_parse[-leftovers:]
