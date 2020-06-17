@@ -1,4 +1,5 @@
 import evpn_parser
+import os
 import requests
 import selectors
 import signal
@@ -21,7 +22,7 @@ def cleanup(sig, frame):
     except:
         pass
     finally:
-        sys.exit()
+        os._exit(0)
 
 
 def accept_wrapper(sock, sel):
@@ -86,6 +87,7 @@ if __name__ == "__main__":
     port = int(sys.argv[2])
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((host, port))
     sock.listen()
     sock.setblocking(False)
