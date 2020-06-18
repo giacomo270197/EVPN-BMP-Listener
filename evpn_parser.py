@@ -297,10 +297,11 @@ def parse_bmp_common_header(blob, pos, message):
     message_type, pos = pull_int(blob, pos, 1)
     if bmp_message_types[message_type] == "Initiation Message":
         _, pos = pull_bytes(blob, pos, message_length - 6)
-        parse_bmp_header(blob[pos:], message)
-    else:
-        message.set_bmp_common(version, message_length, message_type)
-        return pos
+        version, pos = pull_int(blob, pos, 1)
+        message_length, pos = pull_int(blob, pos, 4)
+        message_type, pos = pull_int(blob, pos, 1)
+    message.set_bmp_common(version, message_length, message_type)
+    return pos
 
 
 def parse_bmp_per_peer_header(blob, pos, message):
