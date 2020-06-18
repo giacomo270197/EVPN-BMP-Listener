@@ -480,7 +480,7 @@ def run(blob, index):
         message = MessageBuilder()
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        parse_bmp_header(blob[:pos], message)
+        parse_bmp_header(blob[:roll_back], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
