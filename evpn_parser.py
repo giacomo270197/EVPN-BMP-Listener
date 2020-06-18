@@ -19,7 +19,7 @@ class MessageBuilder:
         })
 
     def set_bmp_per_peer(self, peer_type, flags, peer_distinguisher, address, asn, bgp_id, timestamp_sec, timestamp_msec):
-        self.message["BMP Header"].update({"Per Peer Header: {}"})
+        self.message["BMP Header"].update({"Per Peer Header": {}})
         self.message["BMP Header"]["Per Peer Header"].update({
             "Peer Type": peer_type,
             "Flags": flags,
