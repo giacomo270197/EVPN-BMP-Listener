@@ -245,6 +245,9 @@ bpd_extended_communities_types = {
 }
 
 
+last_message = None
+
+
 def bytes_to_IP(num):
     num = num.split(" ")
     if len(num) == 4:
@@ -303,6 +306,7 @@ def parse_bmp_common_header(blob, pos, message):
     begin = pos
     version, pos = pull_int(blob, pos, 1)
     if version == 70:
+        print(last_message)
         print("Got wrong version")
         exit()
     message_length, pos = pull_int(blob, pos, 4)
@@ -490,6 +494,7 @@ def open_m(blob, pos, message):
 
 
 def run(blob, index):
+    global last_message
     pos = 0
     new_start = 0
     while(blob.find(marker, 0) != -1):
@@ -528,6 +533,7 @@ def run(blob, index):
             print(message.get_json())
         else:
             print("Pushing JSON")
+            last_message = message_type
             requests.post("http://localhost:9200/{}/_doc".format(index),
                           json=message.message)
     return new_start
