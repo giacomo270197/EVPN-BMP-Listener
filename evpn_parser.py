@@ -533,7 +533,7 @@ def run(blob, index):
             print(message.get_json())
         else:
             print("Pushing JSON")
-            last_message = message_type
+            last_message = message
             requests.post("http://localhost:9200/{}/_doc".format(index),
                           json=message.message)
     return new_start
