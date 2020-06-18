@@ -325,7 +325,7 @@ def parse_bmp_per_peer_header(blob, pos, message):
 
 def parse_bmp_header(blob, message):
     pos = 0
-    pos = parse_bmp_common_header(blob[:6], pos, message)
+    pos = parse_bmp_common_header(blob, pos, message)
     if len(blob) > 6:  # Meaning there is a per-peer-header too
         parse_bmp_per_peer_header(blob, pos, message)
 
