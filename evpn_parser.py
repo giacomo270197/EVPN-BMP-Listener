@@ -70,6 +70,7 @@ class MessageBuilder:
         self.message["BGP Message"].update({"Update": {}})
 
     def set_bgp_nlri_mac(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
+        print("Setting nlri mac")
         self.message["BGP Message"]["Update"].update({
             "EVPN Route Type": "MAC Advertisement",
             "Type": "New Route" if nlri else "Withdrawn",
@@ -82,6 +83,7 @@ class MessageBuilder:
         })
 
     def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri):
+        print("Setting nlri ip")
         self.message["BGP Message"]["Update"].update({
             "EVPN Route Type": "IP Prefix Route",
             "Type": "New Route" if nlri else "Withdrawn",
