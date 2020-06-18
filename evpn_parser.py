@@ -306,7 +306,7 @@ def parse_bmp_common_header(blob, pos, message):
     begin = pos
     version, pos = pull_int(blob, pos, 1)
     if version == 70:
-        print(last_message)
+        print(last_message.get_json())
         print("Got wrong version")
         exit()
     message_length, pos = pull_int(blob, pos, 4)
