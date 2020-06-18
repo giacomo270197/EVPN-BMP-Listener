@@ -509,8 +509,8 @@ def run(blob, index):
             message_length, bgp_message_type[message_type])
         total_length, bmp_begin = parse_bmp_header(blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
-            print((total_length - bmp_begin) - pos)
             pos = update(blob, pos, message)
+            print((total_length - bmp_begin) - pos)
         elif bgp_message_type[message_type] == "NOTIFICATION":
             pos = notification(blob, pos, message)
         elif bgp_message_type[message_type] == "OPEN":
