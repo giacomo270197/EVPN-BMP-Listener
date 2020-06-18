@@ -1,4 +1,5 @@
 import evpn_parser
+import os
 import requests
 import selectors
 import signal
@@ -21,7 +22,7 @@ def cleanup(sig, frame):
     except:
         pass
     finally:
-        sys.exit()
+        os._exit(0)
 
 
 def accept_wrapper(sock, sel):
@@ -74,9 +75,9 @@ def parse(index):
                 blob = b''
         if len(to_parse) > 1024:
             print("Starting parse run")
-            leftovers = evpn_parser.run(to_parse, index)
-            to_parse = to_parse[-leftovers:]
-            print("Parsed: {} left".format(leftovers))
+            consumed = evpn_parser.run(to_parse, index)
+            to_parse = to_parse[consumed:]
+            print("Consumed: {}".format(consumed))
 
 
 if __name__ == "__main__":
@@ -86,6 +87,7 @@ if __name__ == "__main__":
     port = int(sys.argv[2])
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((host, port))
     sock.listen()
     sock.setblocking(False)

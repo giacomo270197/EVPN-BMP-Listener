@@ -379,7 +379,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             message.set_bgp_nlri_mac(
                 route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
         elif evpn_route_types[evpn_type] == "IP prefix Route":
-            print("We have prefix route, left ",  evpn_length - 24)
+            # print("We have prefix route, left ",  evpn_length - 24)
             if evpn_length - 22 < 12:
                 ip_prefix_length, pos = pull_int(blob, pos, 1)
                 ip_address, pos = pull_bytes(blob, pos, 4)
@@ -465,19 +465,23 @@ def open_m(blob, pos, message):
 
 
 def run(blob, index):
-    cnt = 0
+    pos = 0
     new_start = 0
-    while(blob.find(marker, cnt) != -1):
-        message = MessageBuilder()
-        pos = blob.find(marker, cnt)
+    while(blob.find(marker, 0) != -1):
         roll_back = pos
+        pos = blob.find(marker, 0)
         _, pos = pull_int(blob, pos, 16)
-        message_length, pos = pull_int(blob, pos, 2)
-        if len(blob) < roll_back + message_length:
-            return len(blob) - new_start
+        try:
+            message_length, pos = pull_int(blob, pos, 2)
+            if len(blob) < roll_back + message_length:
+                raise Exception()
+        except:
+            return new_start
+
+        message = MessageBuilder()
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        parse_bmp_header(blob[new_start:pos], message)
+        parse_bmp_header(blob[:pos], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
@@ -488,15 +492,15 @@ def run(blob, index):
             pos = open_m(blob, pos, message)
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
-        new_start = pos
-        cnt = pos + 1
+        new_start += pos
+        blob = blob[pos:]
         if __name__ == "__main__":
             print(message.get_json())
         else:
             print("Pushing JSON")
-            res = requests.post("http://localhost:9200/{}/_doc".format(index),
+            requests.post("http://localhost:9200/{}/_doc".format(index),
                                 json=message.message)
-    return 0
+    return new_start
 
 
 if __name__ == "__main__":
