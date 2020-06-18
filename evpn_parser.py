@@ -181,7 +181,7 @@ bgp_extended_communities_evpn_subtypes = {
     0: "MAC Mobility",
     1: "ESI Label",
     2: "ES-Import Route Target",
-    3: "EVPN Router’s MAC Extended Community",
+    3: "EVPN Router's MAC Extended Community",
     4: "EVPN Layer 2 Attributes",
     5: "E-Tree Extended Community",
     6: "DF Election Extended Community",
@@ -445,6 +445,7 @@ def parse_path_attribute(blob, pos, message):
         print("Unkown length attribute",
               bgp_path_attributes[path_attribute_type])
         exit()
+    print(bgp_path_attributes[path_attribute_type])
     if bgp_path_attributes[path_attribute_type] == "MP_REACH_NLRI":
         pos = mp_nlri(blob, pos, length, True, message)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
@@ -466,6 +467,7 @@ def update(blob, pos, message):
         new_pos = parse_path_attribute(blob, pos, message)
         drawn += new_pos - pos
         pos = new_pos
+        print(pos)
     return pos
 
 
