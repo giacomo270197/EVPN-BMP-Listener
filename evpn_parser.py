@@ -309,7 +309,7 @@ def parse_bmp_common_header(blob, pos, message):
         message_length, pos = pull_int(blob, pos, 4)
         message_type, pos = pull_int(blob, pos, 1)
     message.set_bmp_common(version, message_length, message_type)
-    return pos, message_type
+    return pos, message_type, message_length
 
 
 def parse_bmp_per_peer_header(blob, pos, message):
@@ -334,7 +334,8 @@ def parse_bmp_per_peer_header(blob, pos, message):
 
 def parse_bmp_header(blob, message):
     pos = 0
-    pos, message_type = parse_bmp_common_header(blob, pos, message)
+    pos, message_type, message_length = parse_bmp_common_header(
+        blob, pos, message)
     if len(blob) > 6:  # Meaning there is a per-peer-header too
         parse_bmp_per_peer_header(blob, pos, message)
     if bmp_message_types[message_type] == "Peer Up Notification":
@@ -342,6 +343,7 @@ def parse_bmp_header(blob, message):
         local_port = pull_int(blob, pos, 2)
         remote_port = pull_int(blob, pos, 2)
         message.set_bmp_peer_up(local_address, local_port, remote_port)
+    return message_length
 
 
 def extended_communities(blob, pos, length, message):
@@ -498,21 +500,24 @@ def run(blob, index):
             return new_start
         message = MessageBuilder()
         message_type, pos = pull_int(blob, pos, 1)
-        message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        parse_bmp_header(blob[:tmp], message)
+        message.set_bgp_basics(
+            message_length, bgp_message_type[message_type])
+        total_length = parse_bmp_header(blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
+            if pos != tmp + total_length:
+                print("This shouldn't happen")
         elif bgp_message_type[message_type] == "NOTIFICATION":
             pos = notification(blob, pos, message)
+            if pos != tmp + total_length:
+                print("This shouldn't happen")
         elif bgp_message_type[message_type] == "OPEN":
-            try:
-                if len(blob) < roll_back + (2 * message_length + 10):
-                    raise Exception()
-            except:
+            if len(blob) < pos + total_length:
                 return new_start
             pos = open_m(blob, pos, message)
             _, pos = pull_int(blob, pos, 19)
             pos = open_m(blob, pos, message)
+            _, pos = pull_bytes(blob, pos, (tmp + total_length) - pos)
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
         new_start += pos
