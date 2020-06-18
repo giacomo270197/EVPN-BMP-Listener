@@ -303,6 +303,7 @@ def parse_bmp_common_header(blob, pos, message):
     begin = pos
     version, pos = pull_int(blob, pos, 1)
     if version == 70:
+        print("Got wrong version")
         exit()
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
@@ -508,6 +509,7 @@ def run(blob, index):
             message_length, bgp_message_type[message_type])
         total_length, bmp_begin = parse_bmp_header(blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
+            print((total_length - bmp_begin) - pos)
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
             pos = notification(blob, pos, message)
