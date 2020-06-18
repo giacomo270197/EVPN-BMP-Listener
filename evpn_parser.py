@@ -477,7 +477,6 @@ def run(blob, index):
                 raise Exception()
         except:
             return new_start
-
         message = MessageBuilder()
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
@@ -487,6 +486,11 @@ def run(blob, index):
         elif bgp_message_type[message_type] == "NOTIFICATION":
             pos = notification(blob, pos, message)
         elif bgp_message_type[message_type] == "OPEN":
+            try:
+                if len(blob) < roll_back + (2 * message_length + 10):
+                    raise Exception()
+            except:
+                return new_start
             pos = open_m(blob, pos, message)
             _, pos = pull_int(blob, pos, 19)
             pos = open_m(blob, pos, message)
@@ -499,7 +503,7 @@ def run(blob, index):
         else:
             print("Pushing JSON")
             requests.post("http://localhost:9200/{}/_doc".format(index),
-                                json=message.message)
+                          json=message.message)
     return new_start
 
 
