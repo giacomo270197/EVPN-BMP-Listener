@@ -305,10 +305,6 @@ def pull_int(blob, pos, amount):
 def parse_bmp_common_header(blob, pos, message):
     begin = pos
     version, pos = pull_int(blob, pos, 1)
-    if version == 70:
-        print(last_message.get_json())
-        print("Got wrong version")
-        exit()
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
     if bmp_message_types[message_type] == "Initiation Message":
@@ -337,6 +333,7 @@ def parse_bmp_per_peer_header(blob, pos, message):
         bgp_id = bytes_to_IP(bgp_id)
     timestamp_sec, pos = pull_int(blob, pos, 4)
     timestamp_msec, pos = pull_int(blob, pos, 4)
+    print(timestamp_sec, timestamp_msec)
     message.set_bmp_per_peer(peer_type, flags, peer_distinguisher,
                              address, asn, bgp_id, timestamp_sec, timestamp_msec)
 
@@ -349,8 +346,10 @@ def parse_bmp_header(blob, message):
         parse_bmp_per_peer_header(blob, pos, message)
     if bmp_message_types[message_type] == "Peer Up Notification":
         local_address, pos = pull_bytes(blob, pos, 16)
-        local_port = pull_int(blob, pos, 2)
-        remote_port = pull_int(blob, pos, 2)
+        if local_address:
+            local_address = bytes_to_IP(local_address)
+        local_port, pos = pull_int(blob, pos, 2)
+        remote_port, pos = pull_int(blob, pos, 2)
         message.set_bmp_peer_up(local_address, local_port, remote_port)
     return message_length, begin
 
