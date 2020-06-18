@@ -295,8 +295,12 @@ def parse_bmp_common_header(blob, pos, message):
     version, pos = pull_int(blob, pos, 1)
     message_length, pos = pull_int(blob, pos, 4)
     message_type, pos = pull_int(blob, pos, 1)
-    message.set_bmp_common(version, message_length, message_type)
-    return pos
+    if bmp_message_types[message_type] == "Initiation Message":
+        _, pos = pull_bytes(blob, pos, message_length - 6)
+        parse_bmp_header(blob[pos:], message)
+    else:
+        message.set_bmp_common(version, message_length, message_type)
+        return pos
 
 
 def parse_bmp_per_peer_header(blob, pos, message):
@@ -470,6 +474,7 @@ def run(blob, index):
     while(blob.find(marker, 0) != -1):
         roll_back = pos
         pos = blob.find(marker, 0)
+        tmp = pos
         _, pos = pull_int(blob, pos, 16)
         try:
             message_length, pos = pull_int(blob, pos, 2)
@@ -480,7 +485,7 @@ def run(blob, index):
         message = MessageBuilder()
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(message_length, bgp_message_type[message_type])
-        parse_bmp_header(blob[:roll_back], message)
+        parse_bmp_header(blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
