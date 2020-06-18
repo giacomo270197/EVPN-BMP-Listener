@@ -158,9 +158,9 @@ bmp_message_types = {
 }
 
 single_length_path_attributes = {
-    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY", "NEXT_HOP", "CLUSTER_LIST"}
+    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY", "NEXT_HOP"}
 double_length_path_attributes = {
-    "MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
+    "MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI", "CLUSTER_LIST"}
 
 evpn_route_types = {
     1: "Ethernet Autodiscovery",
