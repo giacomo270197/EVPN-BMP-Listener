@@ -19,7 +19,8 @@ class MessageBuilder:
         })
 
     def set_bmp_per_peer(self, peer_type, flags, peer_distinguisher, address, asn, bgp_id, timestamp_sec, timestamp_msec):
-        self.message["BMP Header"].update({
+        self.message["BMP Header"].update({"Per Peer Header: {}"})
+        self.message["BMP Header"]["Per Peer Header"].update({
             "Peer Type": peer_type,
             "Flags": flags,
             "Peer Distinguisher": peer_distinguisher,
@@ -28,6 +29,13 @@ class MessageBuilder:
             "BGP ID": bgp_id,
             "Timestamp (s)": timestamp_sec,
             "Timestamp (ms)": timestamp_msec
+        })
+
+    def set_bmp_peer_up(self, local_address, local_port, remote_port):
+        self.message["BMP Header"].update({
+            "Local Address": local_address,
+            "Local Port": local_port,
+            "Remote Port": remote_port
         })
 
     def set_bgp_basics(self, length, message_type):
@@ -301,7 +309,7 @@ def parse_bmp_common_header(blob, pos, message):
         message_length, pos = pull_int(blob, pos, 4)
         message_type, pos = pull_int(blob, pos, 1)
     message.set_bmp_common(version, message_length, message_type)
-    return pos
+    return pos, message_type
 
 
 def parse_bmp_per_peer_header(blob, pos, message):
@@ -326,9 +334,14 @@ def parse_bmp_per_peer_header(blob, pos, message):
 
 def parse_bmp_header(blob, message):
     pos = 0
-    pos = parse_bmp_common_header(blob, pos, message)
+    pos, message_type = parse_bmp_common_header(blob, pos, message)
     if len(blob) > 6:  # Meaning there is a per-peer-header too
         parse_bmp_per_peer_header(blob, pos, message)
+    if bmp_message_types[message_type] == "Peer Up Notification":
+        local_address, pos = pull_bytes(blob, pos, 16)
+        local_port = pull_int(blob, pos, 2)
+        remote_port = pull_int(blob, pos, 2)
+        message.set_bmp_peer_up(local_address, local_port, remote_port)
 
 
 def extended_communities(blob, pos, length, message):
