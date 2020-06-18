@@ -158,7 +158,7 @@ bmp_message_types = {
 }
 
 single_length_path_attributes = {
-    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY"}
+    "ORIGIN", "EXTENDED COMMUNITIES", "MULTI_EXIT_DISC", "COMMUNITY", "NEXT_HOP"}
 double_length_path_attributes = {
     "MP_REACH_NLRI", "AS_PATH", "MP_UNREACH_NLRI"}
 
