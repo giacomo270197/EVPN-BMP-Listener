@@ -28,9 +28,9 @@ class MessageBuilder:
             "Address": address,
             "AS Number": asn,
             "BGP ID": bgp_id,
-            "Timestamp (s)": timestamp_sec,
-            "Timestamp (ms)": timestamp_msec
+            # "Timestamp (ms)": timestamp_msec
         })
+        self.message.update({"@timestamp": timestamp_sec})
 
     def set_bmp_peer_up(self, local_address, local_port, remote_port):
         self.message["BMP Header"].update({
