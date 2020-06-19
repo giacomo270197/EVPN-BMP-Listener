@@ -12,98 +12,102 @@ class MessageBuilder:
         self.message = {}
 
     def set_bmp_common(self, version, message_length, message_type):
-        self.message.update({"BMP Header": {}})
-        self.message["BMP Header"].update({
-            "BMP Version": version,
-            "Message Length": message_length,
-            "Message Type": message_type
+        self.message.update({"bmp_header": {}})
+        self.message["bmp_header"].update({
+            "bmp_version": version,
+            "message_length": message_length,
+            "message_type": message_type
         })
+
+    def set_received_time(self):
+        self.message.update(
+            {"timestamp_received": datetime.datetime.now().isoformat()})
 
     def set_bmp_per_peer(self, peer_type, flags, peer_distinguisher, address, asn, bgp_id, timestamp_sec, timestamp_msec):
-        self.message["BMP Header"].update({"Per Peer Header": {}})
-        self.message["BMP Header"]["Per Peer Header"].update({
-            "Peer Type": peer_type,
-            "Flags": flags,
-            "Peer Distinguisher": peer_distinguisher,
-            "Address": address,
-            "AS Number": asn,
-            "BGP ID": bgp_id,
+        self.message["bmp_header"].update({"per_peer_header": {}})
+        self.message["bmp_header"]["per_peer_header"].update({
+            "peer_type": peer_type,
+            "flags": flags,
+            "peer_distinguisher": peer_distinguisher,
+            "address": address,
+            "as_number": asn,
+            "bgp_id": bgp_id,
             # "Timestamp (ms)": timestamp_msec
         })
-        self.message.update({"@timestamp": timestamp_sec})
+        self.message.update({"timestamp_real": timestamp_sec})
 
     def set_bmp_peer_up(self, local_address, local_port, remote_port):
-        self.message["BMP Header"].update({
-            "Local Address": local_address,
-            "Local Port": local_port,
-            "Remote Port": remote_port
+        self.message["bmp_header"].update({
+            "local_address": local_address,
+            "local_port": local_port,
+            "remote_port": remote_port
         })
 
     def set_bgp_basics(self, length, message_type):
-        self.message.update({"BGP Message": {}})
-        self.message["BGP Message"].update({
-            "Message Type": message_type,
-            "Length": length
+        self.message.update({"bgp_message": {}})
+        self.message["bgp_message"].update({
+            "message_type": message_type,
+            "length": length
         })
 
     def set_bgp_notification(self, error_code, error_subcode):
-        self.message["BGP Message"].update({"Notification": {}})
-        self.message["BGP Message"]["Notification"].update({
-            "Error Code": error_code,
-            "Error Subcode": error_subcode
+        self.message["bgp_message"].update({"notification": {}})
+        self.message["bgp_message"]["notification"].update({
+            "error_code": error_code,
+            "error_subcode": error_subcode
         })
 
     def set_bgp_open(self, bgp_version, my_as, hold_time, bgp_identifier):
         peer = None
-        if not "Open" in self.message["BGP Message"]:
-            peer = "Peer One"
-            self.message["BGP Message"].update({"Open": {"Peer One": {}}})
+        if not "open" in self.message["bgp_message"]:
+            peer = "peer_one"
+            self.message["bgp_message"].update({"open": {"peer_one": {}}})
         else:
-            peer = "Peer Two"
-            self.message["BGP Message"]["Open"].update({"Peer Two": {}})
-        self.message["BGP Message"]["Open"][peer].update({
-            "BGP Version": bgp_version,
-            "AS Number": my_as,
-            "BGP Identifier": bgp_identifier,
+            peer = "peer_two"
+            self.message["bgp_message"]["open"].update({"peer_two": {}})
+        self.message["bgp_message"]["open"][peer].update({
+            "bgp_version": bgp_version,
+            "my_as": my_as,
+            "bgp_identifier": bgp_identifier,
         })
 
     def set_bgp_update(self):
-        self.message["BGP Message"].update({"Update": {}})
+        self.message["bgp_message"].update({"update": {}})
 
     def set_bgp_nlri_mac(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
-        self.message["BGP Message"]["Update"].update({
-            "EVPN Route Type": "MAC Advertisement",
-            "Type": "New Route" if nlri else "Withdrawn",
-            "Route Distinguisher": route_distinguisher,
-            "ESI": esi,
-            "Ethernet Tag ID": ethernet_tag_id,
-            "MAC Address": mac_address,
-            "IP Address": ip_address,
-            "MPLS Label": mpls_label
+        self.message["bgp_message"]["update"].update({
+            "evpn_route_type": "MAC Advertisement",
+            "type": "New Route" if nlri else "Withdrawn",
+            "route_distinguisher": route_distinguisher,
+            "esi": esi,
+            "ethernet_tag_id": ethernet_tag_id,
+            "mac_address": mac_address,
+            "ip_address": ip_address,
+            "mpls_label": mpls_label
         })
 
     def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri):
-        self.message["BGP Message"]["Update"].update({
-            "EVPN Route Type": "IP Prefix Route",
-            "Type": "New Route" if nlri else "Withdrawn",
-            "Route Distinguisher": route_distinguisher,
-            "ESI": esi,
-            "Ethernet Tag ID": ethernet_tag_id,
-            "IP Address": ip_address,
-            "IP gateway": ip_gateway,
-            "MPLS Label": mpls_label
+        self.message["bgp_message"]["update"].update({
+            "evpn_route_type": "IP Prefix Route",
+            "type": "New Route" if nlri else "Withdrawn",
+            "route_distinguisher": route_distinguisher,
+            "esi": esi,
+            "ethernet_tag_id": ethernet_tag_id,
+            "ip_address": ip_address,
+            "ip_gateway": ip_gateway,
+            "mpls_label": mpls_label
         })
 
     def set_bgp_extended_community(self):
-        self.message["BGP Message"]["Update"].update(
-            {"Extended Communities": []})
+        self.message["bgp_message"]["update"].update(
+            {"extended_communities": []})
 
     def set_bgp_extended_community_entry(self, ec_type, ec_subtype, global_adm, local_adm):
-        self.message["BGP Message"]["Update"]["Extended Communities"].append({
-            "Type": ec_type,
-            "Subtype": ec_subtype,
-            "Global Administration": global_adm,
-            "Local Administration": local_adm
+        self.message["bgp_message"]["update"]["extended_communities"].append({
+            "type": ec_type,
+            "subtype": ec_subtype,
+            "2_bytes_value": global_adm,
+            "4_bytes_value": local_adm
         })
 
     def get_json(self):
@@ -359,7 +363,7 @@ def extended_communities(blob, pos, length, message):
     # print("Received Extended Community")
     number_of_communities = int(length / 8)
     message.set_bgp_extended_community()
-    for community in range(number_of_communities):
+    for _ in range(number_of_communities):
         ec_type, pos = pull_int(blob, pos, 1)
         ec_subtype, pos = pull_int(blob, pos, 1)
         ec_type, subtype_class = bpd_extended_communities_types[ec_type]
@@ -421,7 +425,7 @@ def mp_nlri(blob, pos, length, nlri, message):
                 ip_address = bytes_to_IP(ip_address)
                 ip_gateway, pos = pull_bytes(blob, pos, 16)
                 ip_gateway = bytes_to_IP(ip_gateway)
-            mpls_label, pos = pull_bytes(blob, pos, 3)
+            mpls_label, pos = pull_int(blob, pos, 3)
             message.set_bgp_nlri_ip(
                 route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
         else:
@@ -507,6 +511,7 @@ def run(blob, index):
         except:
             return new_start
         message = MessageBuilder()
+        message.set_received_time()
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(
             message_length, bgp_message_type[message_type])
