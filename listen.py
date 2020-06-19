@@ -39,7 +39,7 @@ def service_connection(key, mask, sel):
     sock = key.fileobj
     data = key.data
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
+        recv_data = sock.recv(8912)  # Should be ready to read
         if recv_data:
             with lock:
                 blob = blob + recv_data
@@ -81,9 +81,7 @@ def parse(index):
 
 
 if __name__ == "__main__":
-    # Standard loopback interface address (localhost)
     host = sys.argv[1]
-    # Port to listen on (non-privileged ports are > 1023)
     port = int(sys.argv[2])
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,7 +96,17 @@ if __name__ == "__main__":
 
     index = "port{}".format(port)
     requests.put(
-        "http://localhost:9200/{}?pretty".format(index))
+        "http://localhost:9200/{}?pretty".format(index), json={
+            "mappings": {
+                "_default_": {
+                    "_timestamp": {
+                        "enabled": True,
+                        "store": True
+                    }
+                }
+            }
+
+        })
 
     l = threading.Thread(target=listen, args=(host, port))
     l.daemon = True

@@ -3,6 +3,7 @@ import struct
 import sys
 import json
 import requests
+import datetime
 
 
 class MessageBuilder:
@@ -332,8 +333,8 @@ def parse_bmp_per_peer_header(blob, pos, message):
     if bgp_id:
         bgp_id = bytes_to_IP(bgp_id)
     timestamp_sec, pos = pull_int(blob, pos, 4)
+    timestamp_sec = datetime.datetime.fromtimestamp(timestamp_sec).isoformat()
     timestamp_msec, pos = pull_int(blob, pos, 4)
-    print(timestamp_sec, timestamp_msec)
     message.set_bmp_per_peer(peer_type, flags, peer_distinguisher,
                              address, asn, bgp_id, timestamp_sec, timestamp_msec)
 
@@ -355,7 +356,7 @@ def parse_bmp_header(blob, message):
 
 
 def extended_communities(blob, pos, length, message):
-    print("Received Extended Community")
+    # print("Received Extended Community")
     number_of_communities = int(length / 8)
     message.set_bgp_extended_community()
     for community in range(number_of_communities):
@@ -374,7 +375,7 @@ def extended_communities(blob, pos, length, message):
 
 
 def mp_nlri(blob, pos, length, nlri, message):
-    print("Received NLRI, {}".format("New" if nlri else "Withdrawn"))
+    # print("Received NLRI, {}".format("New" if nlri else "Withdrawn"))
     afi, pos = pull_int(blob, pos, 2)
     safi, pos = pull_int(blob, pos, 1)
     if afi != 25 or safi != 70:
@@ -414,8 +415,6 @@ def mp_nlri(blob, pos, length, nlri, message):
                 ip_address = bytes_to_IP(ip_address)
                 ip_gateway, pos = pull_bytes(blob, pos, 4)
                 ip_gateway = bytes_to_IP(ip_gateway)
-                print(ip_address)
-                print(ip_gateway)
             else:
                 ip_prefix_length, pos = pull_int(blob, pos, 1)
                 ip_address, pos = pull_bytes(blob, pos, 16)
@@ -444,7 +443,6 @@ def parse_path_attribute(blob, pos, message):
         print("Unkown length attribute",
               bgp_path_attributes[path_attribute_type])
         exit()
-    print(bgp_path_attributes[path_attribute_type])
     if bgp_path_attributes[path_attribute_type] == "MP_REACH_NLRI":
         pos = mp_nlri(blob, pos, length, True, message)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
@@ -463,11 +461,9 @@ def update(blob, pos, message):
     path_attributes_length, pos = pull_int(blob, pos, 2)
     drawn = 0
     while(drawn < path_attributes_length):
-        print("Pre", pos)
         new_pos = parse_path_attribute(blob, pos, message)
         drawn += new_pos - pos
         pos = new_pos
-        print("Post", pos)
     return pos
 
 
@@ -517,7 +513,6 @@ def run(blob, index):
         total_length, bmp_begin = parse_bmp_header(blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
-            print((total_length - bmp_begin) - pos)
         elif bgp_message_type[message_type] == "NOTIFICATION":
             pos = notification(blob, pos, message)
         elif bgp_message_type[message_type] == "OPEN":
@@ -545,6 +540,4 @@ if __name__ == "__main__":
     f = open(sys.argv[1], "rb")
     blob = f.read()
     f.close()
-    # index = sys.argv[2]
-    # requests.put("http://localhost:9200/{}?pretty".format(index))
     run(blob, "")
