@@ -73,7 +73,7 @@ def parse(index):
             if blob:
                 to_parse = to_parse + blob
                 blob = b''
-        if len(to_parse) > 1024:
+        if len(to_parse) > 128:
             print("Starting parse run")
             consumed = evpn_parser.run(to_parse, index)
             to_parse = to_parse[consumed:]
