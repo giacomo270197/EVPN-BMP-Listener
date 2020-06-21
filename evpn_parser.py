@@ -99,7 +99,7 @@ class MessageBuilder:
         })
 
     def set_bgp_extended_community(self):
-        self.message["bgp_message"]["update"].update(
+        self.message["bgp_message"].update(
             {"extended_communities": []})
 
     def set_bgp_extended_community_entry(self, ec_type, ec_subtype, global_adm, local_adm):
