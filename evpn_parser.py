@@ -403,7 +403,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             print("Pre ass, ", pos, pos-start_pos, evpn_length+2)
             label, pos = pull_int(blob, pos, 3)
             print("Post ass, ", pos, pos-start_pos, evpn_length+2)
-            mpls_label = mpls_label + " | " + label
+            mpls_label = mpls_label + " | " + str(label)
         message.set_bgp_nlri_mac(
             route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
     elif evpn_route_types[evpn_type] == "IP prefix Route":
@@ -426,7 +426,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             print("Pre ass, ", pos, pos-start_pos, evpn_length+2)
             label, pos = pull_int(blob, pos, 3)
             print("Post ass, ", pos, pos-start_pos, evpn_length+2)
-            mpls_label = mpls_label + " | " + label
+            mpls_label = mpls_label + " | " + str(label)
         message.set_bgp_nlri_ip(
             route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
     else:
