@@ -103,7 +103,7 @@ class MessageBuilder:
             {"extended_communities": []})
 
     def set_bgp_extended_community_entry(self, ec_type, ec_subtype, global_adm, local_adm):
-        self.message["bgp_message"]["update"]["extended_communities"].append({
+        self.message["bgp_message"]["extended_communities"].append({
             "type": ec_type,
             "subtype": ec_subtype,
             "2_bytes_value": global_adm,
