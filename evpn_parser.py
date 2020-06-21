@@ -379,61 +379,54 @@ def extended_communities(blob, pos, length, message):
 
 
 def mp_nlri(blob, pos, length, nlri, message):
-    # print("Received NLRI, {}".format("New" if nlri else "Withdrawn"))
-    afi, pos = pull_int(blob, pos, 2)
-    safi, pos = pull_int(blob, pos, 1)
-    if afi != 25 or safi != 70:
-        # Return pointer to next path attribute (minus bytes we already consumed)
-        return pos + length - 3
-    else:
-        if nlri:
-            # Network Address of Next Hop, is it really always 5-bytes in our case?
-            _, pos = pull_int(blob, pos, 5)
-            # SNPA, is it really always 1-bytes in our case?
-            _, pos = pull_int(blob, pos, 1)
-        evpn_type, pos = pull_int(blob, pos, 1)
-        evpn_length, pos = pull_int(blob, pos, 1)
-        route_distinguisher, pos = pull_bytes(blob, pos, 8)
-        route_distinguisher = bytes_to_IP(route_distinguisher)
-        esi, pos = pull_int(blob, pos, 10)
-        ethernet_tag_id, pos = pull_int(blob, pos, 4)
-        if evpn_route_types[evpn_type] == "MAC Advertisement Route":
-            # MAC length, assuming it is always 48-bits
-            _, pos = pull_int(blob, pos, 1)
-            mac_address, pos = pull_bytes(blob, pos, 6)
-            if mac_address:
-                mac_address = bytes_to_IP(mac_address)
-            # IP length, and MPLS label
-            ip_length, pos = pull_int(blob, pos, 1)
-            ip_address, pos = pull_bytes(blob, pos, int(ip_length / 8))
-            if ip_address:
-                ip_address = bytes_to_IP(ip_address)
-            mpls_label, pos = pull_bytes(blob, pos, 3)
-            message.set_bgp_nlri_mac(
-                route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
-        elif evpn_route_types[evpn_type] == "IP prefix Route":
-            # print("We have prefix route, left ",  evpn_length - 24)
-            if evpn_length - 22 <= 12:
-                ip_prefix_length, pos = pull_int(blob, pos, 1)
-                ip_address, pos = pull_bytes(blob, pos, 4)
-                ip_address = bytes_to_IP(ip_address)
-                ip_gateway, pos = pull_bytes(blob, pos, 4)
-                ip_gateway = bytes_to_IP(ip_gateway)
-            else:
-                ip_prefix_length, pos = pull_int(blob, pos, 1)
-                ip_address, pos = pull_bytes(blob, pos, 16)
-                ip_address = bytes_to_IP(ip_address)
-                ip_gateway, pos = pull_bytes(blob, pos, 16)
-                ip_gateway = bytes_to_IP(ip_gateway)
-            mpls_label, pos = pull_int(blob, pos, 3)
-            message.set_bgp_nlri_ip(
-                route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
+    if nlri:
+        # Network Address of Next Hop, is it really always 5-bytes in our case?
+        _, pos = pull_int(blob, pos, 5)
+        # SNPA, is it really always 1-bytes in our case?
+        _, pos = pull_int(blob, pos, 1)
+    evpn_type, pos = pull_int(blob, pos, 1)
+    evpn_length, pos = pull_int(blob, pos, 1)
+    route_distinguisher, pos = pull_bytes(blob, pos, 8)
+    route_distinguisher = bytes_to_IP(route_distinguisher)
+    esi, pos = pull_int(blob, pos, 10)
+    ethernet_tag_id, pos = pull_int(blob, pos, 4)
+    if evpn_route_types[evpn_type] == "MAC Advertisement Route":
+        # MAC length, assuming it is always 48-bits
+        _, pos = pull_int(blob, pos, 1)
+        mac_address, pos = pull_bytes(blob, pos, 6)
+        if mac_address:
+            mac_address = bytes_to_IP(mac_address)
+        # IP length, and MPLS label
+        ip_length, pos = pull_int(blob, pos, 1)
+        ip_address, pos = pull_bytes(blob, pos, int(ip_length / 8))
+        if ip_address:
+            ip_address = bytes_to_IP(ip_address)
+        mpls_label, pos = pull_bytes(blob, pos, 3)
+        message.set_bgp_nlri_mac(
+            route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
+    elif evpn_route_types[evpn_type] == "IP prefix Route":
+        # print("We have prefix route, left ",  evpn_length - 24)
+        if evpn_length - 22 <= 12:
+            ip_prefix_length, pos = pull_int(blob, pos, 1)
+            ip_address, pos = pull_bytes(blob, pos, 4)
+            ip_address = bytes_to_IP(ip_address)
+            ip_gateway, pos = pull_bytes(blob, pos, 4)
+            ip_gateway = bytes_to_IP(ip_gateway)
         else:
-            print("Unsupported advertisement type: {}".format(
-                evpn_route_types[evpn_type]))
-            # Return pointer to next path attribute (minus bytes we already consumed)
-            return pos + length - 4
-        return pos
+            ip_prefix_length, pos = pull_int(blob, pos, 1)
+            ip_address, pos = pull_bytes(blob, pos, 16)
+            ip_address = bytes_to_IP(ip_address)
+            ip_gateway, pos = pull_bytes(blob, pos, 16)
+            ip_gateway = bytes_to_IP(ip_gateway)
+        mpls_label, pos = pull_int(blob, pos, 3)
+        message.set_bgp_nlri_ip(
+            route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
+    else:
+        print("Unsupported advertisement type: {}".format(
+            evpn_route_types[evpn_type]))
+        # Return pointer to next path attribute (minus bytes we already consumed)
+        return pos + length - 4
+    return pos
 
 
 def parse_path_attribute(blob, pos, message):
@@ -449,12 +442,25 @@ def parse_path_attribute(blob, pos, message):
         exit()
     remainder = length
     if bgp_path_attributes[path_attribute_type] == "MP_REACH_NLRI":
+        afi, pos = pull_int(blob, pos, 2)
+        safi, pos = pull_int(blob, pos, 1)
+        if afi != 25 or safi != 70:
+            # Return pointer to next path attribute (minus bytes we already consumed)
+            return pos + length - 3
         while remainder:
             old_pos = pos
             pos = mp_nlri(blob, pos, length, True, message)
             remainder -= (pos - old_pos)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
-        pos = mp_nlri(blob, pos, length, False, message)
+        afi, pos = pull_int(blob, pos, 2)
+        safi, pos = pull_int(blob, pos, 1)
+        if afi != 25 or safi != 70:
+            # Return pointer to next path attribute (minus bytes we already consumed)
+            return pos + length - 3
+        while remainder:
+            old_pos = pos
+            pos = mp_nlri(blob, pos, length, False, message)
+            remainder -= (pos - old_pos)
     elif bgp_path_attributes[path_attribute_type] == "EXTENDED COMMUNITIES":
         pos = extended_communities(blob, pos, length, message)
     else:
