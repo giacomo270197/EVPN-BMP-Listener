@@ -379,6 +379,7 @@ def extended_communities(blob, pos, length, message):
 
 
 def mp_nlri(blob, pos, length, nlri, message):
+    start_pos = pos
     evpn_type, pos = pull_int(blob, pos, 1)
     evpn_length, pos = pull_int(blob, pos, 1)
     route_distinguisher, pos = pull_bytes(blob, pos, 8)
@@ -413,7 +414,10 @@ def mp_nlri(blob, pos, length, nlri, message):
             ip_address = bytes_to_IP(ip_address)
             ip_gateway, pos = pull_bytes(blob, pos, 16)
             ip_gateway = bytes_to_IP(ip_gateway)
-        mpls_label, pos = pull_int(blob, pos, 3)
+        mpls_label = ""
+        while pos-start_pos > 0:
+            label, pos = pull_int(blob, pos, 3)
+            mpls_label = mpls_label + " | " + label
         message.set_bgp_nlri_ip(
             route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
     else:
