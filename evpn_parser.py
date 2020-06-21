@@ -446,6 +446,7 @@ def parse_path_attribute(blob, pos, message):
         _, pos = pull_int(blob, pos, 5)
         # SNPA, is it really always 1-bytes in our case?
         _, pos = pull_int(blob, pos, 1)
+        remainder -= 9
         while remainder:
             old_pos = pos
             pos = mp_nlri(blob, pos, length, True, message)
@@ -453,6 +454,7 @@ def parse_path_attribute(blob, pos, message):
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
         afi, pos = pull_int(blob, pos, 2)
         safi, pos = pull_int(blob, pos, 1)
+        remainder -= 3
         if afi != 25 or safi != 70:
             # Return pointer to next path attribute (minus bytes we already consumed)
             return pos + length - 3
