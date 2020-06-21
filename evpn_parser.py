@@ -356,7 +356,7 @@ def parse_bmp_header(blob, message):
         local_port, pos = pull_int(blob, pos, 2)
         remote_port, pos = pull_int(blob, pos, 2)
         message.set_bmp_peer_up(local_address, local_port, remote_port)
-    return message_length, begin
+    return message_length, begin, message_type
 
 
 def extended_communities(blob, pos, length, message):
@@ -516,7 +516,10 @@ def run(blob, index):
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(
             message_length, bgp_message_type[message_type])
-        total_length, bmp_begin = parse_bmp_header(blob[:tmp], message)
+        total_length, bmp_begin, bmp_type = parse_bmp_header(
+            blob[:tmp], message)
+        if bmp_message_types[message_type] == "Route Mirroring Message":
+            _, pos = pull_bytes(blob, pos, 4)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
