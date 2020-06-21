@@ -379,11 +379,6 @@ def extended_communities(blob, pos, length, message):
 
 
 def mp_nlri(blob, pos, length, nlri, message):
-    if nlri:
-        # Network Address of Next Hop, is it really always 5-bytes in our case?
-        _, pos = pull_int(blob, pos, 5)
-        # SNPA, is it really always 1-bytes in our case?
-        _, pos = pull_int(blob, pos, 1)
     evpn_type, pos = pull_int(blob, pos, 1)
     evpn_length, pos = pull_int(blob, pos, 1)
     route_distinguisher, pos = pull_bytes(blob, pos, 8)
@@ -447,6 +442,10 @@ def parse_path_attribute(blob, pos, message):
         if afi != 25 or safi != 70:
             # Return pointer to next path attribute (minus bytes we already consumed)
             return pos + length - 3
+        # Network Address of Next Hop, is it really always 5-bytes in our case?
+        _, pos = pull_int(blob, pos, 5)
+        # SNPA, is it really always 1-bytes in our case?
+        _, pos = pull_int(blob, pos, 1)
         while remainder:
             old_pos = pos
             pos = mp_nlri(blob, pos, length, True, message)
