@@ -397,7 +397,13 @@ def mp_nlri(blob, pos, length, nlri, message):
         ip_address, pos = pull_bytes(blob, pos, int(ip_length / 8))
         if ip_address:
             ip_address = bytes_to_IP(ip_address)
-        mpls_label, pos = pull_bytes(blob, pos, 3)
+        mpls_label = ""
+        print("Pre cycle, ", pos, pos-start_pos, evpn_length+2)
+        while pos-start_pos < (evpn_length + 2):
+            print("Pre ass, ", pos, pos-start_pos, evpn_length+2)
+            label, pos = pull_int(blob, pos, 3)
+            print("Post ass, ", pos, pos-start_pos, evpn_length+2)
+            mpls_label = mpls_label + " | " + label
         message.set_bgp_nlri_mac(
             route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri)
     elif evpn_route_types[evpn_type] == "IP prefix Route":
@@ -415,8 +421,11 @@ def mp_nlri(blob, pos, length, nlri, message):
             ip_gateway, pos = pull_bytes(blob, pos, 16)
             ip_gateway = bytes_to_IP(ip_gateway)
         mpls_label = ""
+        print("Pre cycle, ", pos, pos-start_pos, evpn_length+2)
         while pos-start_pos < (evpn_length + 2):
+            print("Pre ass, ", pos, pos-start_pos, evpn_length+2)
             label, pos = pull_int(blob, pos, 3)
+            print("Post ass, ", pos, pos-start_pos, evpn_length+2)
             mpls_label = mpls_label + " | " + label
         message.set_bgp_nlri_ip(
             route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
