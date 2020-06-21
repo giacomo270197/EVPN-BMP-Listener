@@ -415,7 +415,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             ip_gateway, pos = pull_bytes(blob, pos, 16)
             ip_gateway = bytes_to_IP(ip_gateway)
         mpls_label = ""
-        while pos-start_pos < evpn_length:
+        while pos-start_pos < (evpn_length + 2):
             label, pos = pull_int(blob, pos, 3)
             mpls_label = mpls_label + " | " + label
         message.set_bgp_nlri_ip(
