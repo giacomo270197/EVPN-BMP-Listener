@@ -497,6 +497,7 @@ def open_m(blob, pos, message):
 
 def run(blob, index):
     global last_message
+    success = True
     pos = 0
     new_start = 0
     while(blob.find(marker, 0) != -1):
@@ -529,11 +530,12 @@ def run(blob, index):
             _, pos = pull_bytes(blob, pos, (total_length - bmp_begin) - pos)
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
+            success = False
         new_start += pos
         blob = blob[pos:]
         if __name__ == "__main__":
             print(message.get_json())
-        else:
+        elif success:
             print("Pushing JSON")
             last_message = message
             requests.post("http://localhost:9200/{}/_doc".format(index),
