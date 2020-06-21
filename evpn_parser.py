@@ -72,7 +72,7 @@ class MessageBuilder:
         })
 
     def set_bgp_update(self):
-        self.message["bgp_message"].update({"update": [])
+        self.message["bgp_message"].update({"update": []})
 
     def set_bgp_nlri_mac(self, route_distinguisher, esi, ethernet_tag_id, mac_address, ip_address, mpls_label, nlri):
         self.message["bgp_message"]["update"].append({
