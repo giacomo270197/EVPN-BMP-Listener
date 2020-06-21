@@ -87,7 +87,7 @@ class MessageBuilder:
         })
 
     def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri):
-        self.message["bgp_message"]["update"].update({
+        self.message["bgp_message"]["update"].append({
             "evpn_route_type": "IP Prefix Route",
             "type": "New Route" if nlri else "Withdrawn",
             "route_distinguisher": route_distinguisher,
