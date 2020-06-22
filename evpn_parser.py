@@ -418,9 +418,9 @@ def mp_nlri(blob, pos, length, nlri, message):
             ip_gateway, pos = pull_bytes(blob, pos, 16)
             ip_gateway = bytes_to_IP(ip_gateway)
         mpls_label = ""
-        while pos-start_pos < (evpn_length + 2):)
-            label, pos=pull_int(blob, pos, 3)
-            mpls_label=mpls_label + " | " + str(label)
+        while pos-start_pos < (evpn_length + 2):
+            label, pos = pull_int(blob, pos, 3)
+            mpls_label = mpls_label + " | " + str(label)
         message.set_bgp_nlri_ip(
             route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
     else:
@@ -432,45 +432,45 @@ def mp_nlri(blob, pos, length, nlri, message):
 
 
 def parse_path_attribute(blob, pos, message):
-    _, pos=pull_int(blob, pos, 1)
-    path_attribute_type, pos=pull_int(blob, pos, 1)
+    _, pos = pull_int(blob, pos, 1)
+    path_attribute_type, pos = pull_int(blob, pos, 1)
     if bgp_path_attributes[path_attribute_type] in single_length_path_attributes:
-        length, pos=pull_int(blob, pos, 1)
+        length, pos = pull_int(blob, pos, 1)
     elif bgp_path_attributes[path_attribute_type] in double_length_path_attributes:
-        length, pos=pull_int(blob, pos, 2)
+        length, pos = pull_int(blob, pos, 2)
     else:
         print("Unkown length attribute",
               bgp_path_attributes[path_attribute_type])
         exit()
-    remainder=length
+    remainder = length
     if bgp_path_attributes[path_attribute_type] == "MP_REACH_NLRI":
-        afi, pos=pull_int(blob, pos, 2)
-        safi, pos=pull_int(blob, pos, 1)
+        afi, pos = pull_int(blob, pos, 2)
+        safi, pos = pull_int(blob, pos, 1)
         if afi != 25 or safi != 70:
             # Return pointer to next path attribute (minus bytes we already consumed)
             return pos + length - 3
         # Network Address of Next Hop, is it really always 5-bytes in our case?
-        _, pos=pull_int(blob, pos, 5)
+        _, pos = pull_int(blob, pos, 5)
         # SNPA, is it really always 1-bytes in our case?
-        _, pos=pull_int(blob, pos, 1)
+        _, pos = pull_int(blob, pos, 1)
         remainder -= 9
         while remainder:
-            old_pos=pos
-            pos=mp_nlri(blob, pos, length, True, message)
+            old_pos = pos
+            pos = mp_nlri(blob, pos, length, True, message)
             remainder -= (pos - old_pos)
     elif bgp_path_attributes[path_attribute_type] == "MP_UNREACH_NLRI":
-        afi, pos=pull_int(blob, pos, 2)
-        safi, pos=pull_int(blob, pos, 1)
+        afi, pos = pull_int(blob, pos, 2)
+        safi, pos = pull_int(blob, pos, 1)
         remainder -= 3
         if afi != 25 or safi != 70:
             # Return pointer to next path attribute (minus bytes we already consumed)
             return pos + length - 3
         while remainder:
-            old_pos=pos
-            pos=mp_nlri(blob, pos, length, False, message)
+            old_pos = pos
+            pos = mp_nlri(blob, pos, length, False, message)
             remainder -= (pos - old_pos)
     elif bgp_path_attributes[path_attribute_type] == "EXTENDED COMMUNITIES":
-        pos=extended_communities(blob, pos, length, message)
+        pos = extended_communities(blob, pos, length, message)
     else:
         pos += length  # Return pointer to next path attribute
     return pos
@@ -479,20 +479,20 @@ def parse_path_attribute(blob, pos, message):
 def update(blob, pos, message):
     print("Received Update")
     message.set_bgp_update()
-    _, pos=pull_int(blob, pos, 2)
-    path_attributes_length, pos=pull_int(blob, pos, 2)
-    drawn=0
+    _, pos = pull_int(blob, pos, 2)
+    path_attributes_length, pos = pull_int(blob, pos, 2)
+    drawn = 0
     while(drawn < path_attributes_length):
-        new_pos=parse_path_attribute(blob, pos, message)
+        new_pos = parse_path_attribute(blob, pos, message)
         drawn += new_pos - pos
-        pos=new_pos
+        pos = new_pos
     return pos
 
 
 def notification(blob, pos, message):
     print("Received Notification")
-    error_code, pos=pull_int(blob, pos, 1)
-    error_subcode, pos=pull_int(blob, pos, 1)
+    error_code, pos = pull_int(blob, pos, 1)
+    error_subcode, pos = pull_int(blob, pos, 1)
     if bgp_notification_types[error_code] == "Cease":
         message.set_bgp_notification(error_code, error_subcode)
     else:
@@ -502,12 +502,12 @@ def notification(blob, pos, message):
 
 def open_m(blob, pos, message):
     print("Received Open")
-    bgp_version, pos=pull_int(blob, pos, 1)
-    my_as, pos=pull_int(blob, pos, 2)
-    hold_time, pos=pull_int(blob, pos, 2)
-    bgp_identifier, pos=pull_bytes(blob, pos, 4)
-    bgp_identifier=bytes_to_IP(bgp_identifier)
-    optional_parameters_length, pos=pull_int(blob, pos, 1)
+    bgp_version, pos = pull_int(blob, pos, 1)
+    my_as, pos = pull_int(blob, pos, 2)
+    hold_time, pos = pull_int(blob, pos, 2)
+    bgp_identifier, pos = pull_bytes(blob, pos, 4)
+    bgp_identifier = bytes_to_IP(bgp_identifier)
+    optional_parameters_length, pos = pull_int(blob, pos, 1)
     pos += optional_parameters_length  # Skipping parameters for now
     message.set_bgp_open(bgp_version, my_as, hold_time, bgp_identifier)
     return pos
@@ -515,55 +515,55 @@ def open_m(blob, pos, message):
 
 def run(blob, index):
     global last_message
-    success=True
-    pos=0
-    new_start=0
+    success = True
+    pos = 0
+    new_start = 0
     while(blob.find(marker, 0) != -1):
-        roll_back=pos
-        pos=blob.find(marker, 0)
-        tmp=pos
-        _, pos=pull_int(blob, pos, 16)
+        roll_back = pos
+        pos = blob.find(marker, 0)
+        tmp = pos
+        _, pos = pull_int(blob, pos, 16)
         try:
-            message_length, pos=pull_int(blob, pos, 2)
+            message_length, pos = pull_int(blob, pos, 2)
             if len(blob) < roll_back + message_length:
                 raise Exception()
         except:
             return new_start
-        message=MessageBuilder()
+        message = MessageBuilder()
         message.set_received_time()
-        message_type, pos=pull_int(blob, pos, 1)
+        message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(
             message_length, bgp_message_type[message_type])
-        total_length, bmp_begin, bmp_type=parse_bmp_header(
+        total_length, bmp_begin, bmp_type = parse_bmp_header(
             blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
-            pos=update(blob, pos, message)
+            pos = update(blob, pos, message)
         elif bgp_message_type[message_type] == "NOTIFICATION":
-            pos=notification(blob, pos, message)
+            pos = notification(blob, pos, message)
         elif bgp_message_type[message_type] == "OPEN":
             if len(blob) < pos + total_length:
                 return new_start
-            pos=open_m(blob, pos, message)
-            _, pos=pull_int(blob, pos, 19)
-            pos=open_m(blob, pos, message)
-            _, pos=pull_bytes(blob, pos, (total_length - bmp_begin) - pos)
+            pos = open_m(blob, pos, message)
+            _, pos = pull_int(blob, pos, 19)
+            pos = open_m(blob, pos, message)
+            _, pos = pull_bytes(blob, pos, (total_length - bmp_begin) - pos)
         else:
             print("Unsupported message, ", bgp_message_type[message_type])
-            success=False
+            success = False
         new_start += pos
-        blob=blob[pos:]
+        blob = blob[pos:]
         if __name__ == "__main__":
             print(message.get_json())
         elif success:
             print("Pushing JSON")
-            last_message=message
+            last_message = message
             requests.post("http://localhost:9200/{}/_doc".format(index),
-                          json = message.message)
+                          json=message.message)
     return new_start
 
 
 if __name__ == "__main__":
-    f=open(sys.argv[1], "rb")
-    blob=f.read()
+    f = open(sys.argv[1], "rb")
+    blob = f.read()
     f.close()
     run(blob, "")
