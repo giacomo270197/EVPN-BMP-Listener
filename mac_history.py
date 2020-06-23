@@ -8,15 +8,59 @@ from matplotlib.colors import ListedColormap
 import matplotlib
 import math
 import statistics
+import networkx as nx
+import hashlib
 
 es_host = None
 es_port = None
 es_index = None
+target = None
 
 tolerance = 1
 
-
 nlri_possibilities = ["MP_NLRI_REACH", "MP_NLRI_UNREACH"]
+
+
+class EventTree:
+    def __init__(self):
+        self.tree = nx.DiGraph()
+        self.source_nodes = []
+        self.nodes_to_add = []
+
+    def add_to_source(self, node):
+        self.source_nodes.append(node)
+
+    def rm_from_source(self, node):
+        rm = []
+        for x in self.source_nodes:
+            if node in x:
+                rm.append(x)
+        try:
+            self.source_nodes.pop(self.source_nodes.index(node))
+        except:
+            pass
+
+    def add_to_to_add(self, node):
+        self.nodes_to_add.append(node)
+
+    def rm_from_to_add(self, node):
+        rm = []
+        for x in self.nodes_to_add:
+            if node in x:
+                rm.append(x)
+        for x in rm:
+            try:
+                self.nodes_to_add.pop(self.nodes_to_add.index(x))
+            except:
+                pass
+
+    def add_new_layer(self):
+        if not self.source_nodes:
+            self.tree.add_node(self.nodes_to_add[0])
+        for s_node in self.source_nodes:
+            for d_node in self.nodes_to_add:
+                self.tree.add_node(d_node)
+                self.tree.add_edge(s_node, d_node)
 
 
 def find_best_placement(total):
@@ -82,7 +126,7 @@ def launch_request(query):
         "Content-Type": "application/json"
     }
     response = requests.get(
-        "http://{}:{}/_search/?size=10000".format(es_host, es_port), data=json.dumps(query), headers=header)
+        "http://{}:{}/{}/_search/?size=10000".format(es_host, es_port, target), data=json.dumps(query), headers=header)
     return response.json()
 
 
@@ -173,28 +217,86 @@ def analyze_mac(mac):
     compute_convergence(events_times)
 
 
-# def detect_flapping():
-#     updates = retrieve_updates()["hits"]["hits"]
-#     final_state = {}
-#     for entry in updates:
-#         bmp = entry["_source"]
-#         route_target = None
-#         for ec in bmp["bgp_message"]["extended_communities"]:
-#             if ec["type"] == "Transitive Two-Octet AS-Specific Extended Community" and ec["subtype"] == "Route Target":
-#                 route_target = "{} {}".format(
-#                     ec["2_bytes_value"], ec["4_bytes_value"])
-#         if not route_target:
-#             exit("No route target found")
-#         for update in entry["update"]:
+def find_all_macs(data):
+    macs = []
+    lis = [x["_source"]["bgp_message"]["update"] for x in data]
+    for x in lis:
+        for y in x:
+            macs.append(y["mac_address"])
+    macs = set(macs)
+    return macs
+
+
+def find_macs_events(data):
+    macs = find_all_macs(data)
+    ret = {}
+    for mac in macs:
+        events = [x for x in data if x["_source"]
+                  ["bgp_message"]["update"][0]["mac_address"] == mac]
+        events, _ = find_events(events, [dateutil.parser.isoparse(
+            x["_source"]["timestamp_received"]) for x in events])
+        ret[mac] = events
+    return ret
+
+
+def find_rds(data):
+    rds_new = []
+    rds_withdrawn = []
+    for x in data:
+        for u in x["_source"]["bgp_message"]["update"]:
+            rd = u["route_distinguisher"]
+            print(rd)
+            if u["type"] == "New Route":
+                rds_new.append(rd)
+            else:
+                rds_withdrawn.append(rd)
+    return rds_new, rds_withdrawn
+
+
+def detect_flapping():
+    rd_to_anycast = {
+        "10.10.10.1:0 6": "10.10.100.1",
+        "10.10.10.2:0 6": "10.10.100.1",
+        "10.10.10.3:0 6": "10.10.100.2",
+        "10.10.10.4:0 6": "10.10.100.2",
+    }
+    updates = retrieve_updates()["hits"]["hits"]
+    updates = sorted(updates, key=lambda d: dateutil.parser.isoparse(
+        d["_source"]["timestamp_received"]).timestamp())
+    mac_events = find_macs_events(updates)
+    for mac in mac_events.keys():
+        tree = EventTree()
+        for event in mac_events[mac]:
+            rds_new, rds_withdrawn = find_rds(event)
+            rds_new = list(set([rd_to_anycast[x] for x in rds_new]))
+            rds_withdrawn = list(set([rd_to_anycast[x]
+                                      for x in rds_withdrawn]))
+
+            print("1, ", tree.nodes_to_add)
+            for rd in rds_new:
+                tree.add_to_to_add(rd[-1] + " ,  " + event[0]
+                                   ["_source"]["timestamp_received"][-15:-7])
+                tree.rm_from_source(rd)
+            for rd in rds_withdrawn:
+                tree.rm_from_to_add(rd)
+
+            tree.add_new_layer()
+
+        plt.plot()
+        plt.title = mac
+        pos = nx.spring_layout(tree.tree)
+        nx.draw(tree.tree, pos, with_labels=True)
+        plt.show()
 
 
 if __name__ == "__main__":
     set_es_parameters()
     option = sys.argv[1]
+    target = sys.argv[-1]
     if option == "--mac-analysis":
         mac = sys.argv[2]
         if len(sys.argv) > 3:
             tolerance = float(sys.argv[3])
         analyze_mac(mac)
     elif option == "--mac-flapping":
-        pass
+        detect_flapping()
