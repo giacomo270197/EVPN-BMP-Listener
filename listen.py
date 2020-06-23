@@ -83,6 +83,9 @@ def parse(index):
 if __name__ == "__main__":
     host = sys.argv[1]
     port = int(sys.argv[2])
+    index = "port{}".format(port)
+    if len(sys.argv) > 3:
+        index = sys.argv[3]
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -94,7 +97,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
-    index = "port{}".format(port)
     requests.put(
         "http://localhost:9200/{}?pretty".format(index), json={
             "mappings": {
