@@ -111,6 +111,9 @@ class MessageBuilder:
             "4_bytes_value": local_adm
         })
 
+    def set_as_path(self, segment):
+        self.message["bgp_message"].update({"as_path": segment})
+
     def get_json(self):
         return json.dumps(self.message, indent=2)
 
@@ -379,6 +382,19 @@ def extended_communities(blob, pos, length, message):
     return pos
 
 
+def as_path(blob, pos, length, message):
+    # print("AS Path")
+    segment = []
+    segment_type, pos = pull_int(blob, pos, 1)
+    segment_len, pos = pull_int(blob, pos, 1)
+    for _ in range(segment_len):
+        asn, pos = pull_int(blob, pos, 4)
+        if segment_type == 2:
+            segment.append(asn)
+    message.set_as_path(segment)
+    return pos
+
+
 def mp_nlri(blob, pos, length, nlri, message):
     start_pos = pos
     evpn_type, pos = pull_int(blob, pos, 1)
@@ -472,6 +488,8 @@ def parse_path_attribute(blob, pos, message):
             remainder -= (pos - old_pos)
     elif bgp_path_attributes[path_attribute_type] == "EXTENDED COMMUNITIES":
         pos = extended_communities(blob, pos, length, message)
+    elif bgp_path_attributes[path_attribute_type] == "AS_PATH":
+        pos = as_path(blob, pos, length, message)
     else:
         pos += length  # Return pointer to next path attribute
     return pos
