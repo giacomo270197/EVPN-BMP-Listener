@@ -499,9 +499,14 @@ def prefixes():
         for update in event['_source']['bgp_message']['update']:
             if update['evpn_route_type'] != 'IP Prefix Route':
                 continue
+            if 'as_path' not in event['_source']['bgp_message']:
+                continue
             if 'ip_prefix_length' not in update:
                 update['ip_prefix_length'] = 32
             if ':' in update['ip_address']:
+                # ignore IPv6
+                continue
+            if update['ip_prefix_length'] == 32:
                 continue
             timestamp = prettify_timestamp(
                 event['_source']['timestamp_received'])
@@ -510,7 +515,7 @@ def prefixes():
             if label not in events:
                 events[label] = list()
             events[label].append(
-                (timestamp, event['_source']['bmp_header']['per_peer_header']['bgp_id']))
+                (timestamp, event['_source']['bgp_message']['as_path'][-1]))
 
     plt.xticks(numpy.arange(.0, 1000, 75))
     plt.gca().invert_yaxis()
