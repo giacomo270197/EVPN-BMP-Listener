@@ -262,7 +262,10 @@ def find_all_macs(data):
     lis = [x["_source"]["bgp_message"]["update"] for x in data]
     for x in lis:
         for y in x:
-            macs.append(y["mac_address"])
+            try:
+                macs.append(y["mac_address"])
+            except KeyError:
+                pass
     macs = set(macs)
     return macs
 
@@ -472,6 +475,45 @@ def prettify_timestamp(timestamp):
     return dateutil.parser.isoparse(timestamp).strftime("%m-%d %H:%M:%S.%f")[:-3]
 
 
+def plot_mac_mobility(mac_mm_counters, timestamps):
+    plt.gca().xaxis.set_major_formatter(
+        mdates.DateFormatter("%M:%S"))  # ("%Y-%m-%d %H:%M:%S"))
+    locator = mdates.HourLocator()
+    plt.gca().xaxis.set_major_locator(locator)
+    plt.xticks(rotation='vertical')
+    for k in mac_mm_counters.keys():
+        if mac_mm_counters[k]:
+            plt.plot(timestamps, mac_mm_counters[k], label=k)
+    plt.legend(loc='upper left')
+    plt.show()
+
+
+def analyse_mac_mobility():
+    updates = retrieve_updates()["hits"]["hits"]
+    updates = sorted(updates, key=lambda d: dateutil.parser.isoparse(
+        d["_source"]["timestamp_received"]).timestamp())
+    mac_events = find_all_macs(updates)
+    mac_mm_counters = {x: [] for x, _ in zip(mac_events, mac_events)}
+    timestamps = []
+    for u in updates:
+        update = u["_source"]["bgp_message"]
+        try:
+            mac = update["update"][0]["mac_address"]
+            for ec in update["extended_communities"]:
+                if ec["type"] == "EVPN" and ec["subtype"] == "MAC Mobility":
+                    mac_mm_counters[mac].append(ec["4_bytes_value"])
+                    break
+        except:
+            pass
+        timestamps.append(dateutil.parser.isoparse(
+            u["_source"]["timestamp_received"]))
+        for k in mac_mm_counters.keys():
+            if mac_mm_counters[k]:
+                while len(mac_mm_counters[k]) < len(timestamps):
+                    mac_mm_counters[k].append(mac_mm_counters[k][-1])
+    plot_mac_mobility(mac_mm_counters, timestamps)
+
+
 if __name__ == "__main__":
     set_es_parameters()
     option = sys.argv[1]
@@ -490,3 +532,5 @@ if __name__ == "__main__":
         sessions()
     elif option == "--prefixes":
         prefixes()
+    elif option == "--mac-mobility":
+        analyse_mac_mobility()
