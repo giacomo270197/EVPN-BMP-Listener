@@ -22,6 +22,13 @@ tolerance = 1
 
 nlri_possibilities = ["MP_NLRI_REACH", "MP_NLRI_UNREACH"]
 
+rd_to_anycast = {
+    "10.10.10.1:0 6": "10.10.100.1",
+    "10.10.10.2:0 6": "10.10.100.1",
+    "10.10.10.3:0 6": "10.10.100.2",
+    "10.10.10.4:0 6": "10.10.100.2",
+}
+
 
 class EventTree:
     def __init__(self):
@@ -99,7 +106,7 @@ def divide(event, event_times):
     return event_div, event_times_div
 
 
-def plot(events, events_times):
+def plot(events, events_times, new_advertisers, withdrawn_advertisers):
     matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(color=[
                                                                "b", "r"])
     for event, i in zip(events, range(len(events))):
@@ -109,8 +116,17 @@ def plot(events, events_times):
         plt.gca().xaxis.set_major_locator(locator)
         event_div, event_times_div = divide(event, events_times[i])
         plt.gca().yaxis.set_visible(False)
-        plt.scatter(event_times_div[0], event_div[0], label="MP_NLRI_REACH")
-        plt.scatter(event_times_div[1], event_div[1], label="MP_NLRI_UNREACH")
+        tmp_n = set(new_advertisers[i])
+        tmp_w = set(withdrawn_advertisers[i])
+        try:
+            tmp_n.remove(None)
+            tmp_w.remove(None)
+        except KeyError:
+            pass
+        plt.scatter(event_times_div[0], event_div[0],
+                    label="MP_NLRI_REACH\n{}".format(tmp_n))
+        plt.scatter(event_times_div[1], event_div[1],
+                    label="MP_NLRI_UNREACH\n{}".format(tmp_w))
         plt.legend(loc='best')
         plt.xlabel('Time')
         plt.gcf().autofmt_xdate()
@@ -232,28 +248,56 @@ def find_events(adv, adv_timestamps):
     return events, events_times
 
 
+def get_advertisers(events, new_advertisers, withdrawn_advertisers):
+    tmp_n = []
+    tmp_w = []
+    last = 0
+    for e in events:
+        tmp_n.append(new_advertisers[last:(last+len(e))])
+        tmp_w.append(withdrawn_advertisers[last:(last+len(e))])
+        last += len(e)
+    return tmp_n, tmp_w
+
+
 def analyze_mac(mac):
     mac_info = retrieve_mac_info(mac)["hits"]["hits"]
     tmp = []
+    new_advertisers = []
+    withdrawn_advertisers = []
+    mac_info = sorted(mac_info, key=lambda d: dateutil.parser.isoparse(
+        d["_source"]["timestamp_received"]).timestamp())
     for entry in mac_info:
         bmp = entry["_source"]
         adv_type = None
         for up in bmp["bgp_message"]["update"]:
             try:
                 if up["type"] == "New Route":
-                    adv_type = nlri_possibilities[0]
+                    try:
+                        adv_type = nlri_possibilities[0]
+                        new_advertisers.append(
+                            rd_to_anycast[up["route_distinguisher"]])
+                        withdrawn_advertisers.append(None)
+                    except KeyError:
+                        pass
                 elif up["type"] == "Withdrawn":
-                    adv_type = nlri_possibilities[1]
+                    try:
+                        adv_type = nlri_possibilities[1]
+                        withdrawn_advertisers.append(
+                            rd_to_anycast[up["route_distinguisher"]])
+                        new_advertisers.append(None)
+                    except KeyError:
+                        pass
                 tmp.append((adv_type, dateutil.parser.isoparse(
                     bmp["timestamp_received"])))
             except KeyError:
                 print("This isn't an update: ",
                       bmp["bgp_message"]["message_type"])
-    tmp = sorted(tmp, key=lambda d: d[1].timestamp())
     adv = [x for x, _ in tmp]
     adv_timestamps = [x for _, x in tmp]
     events, events_times = find_events(adv, adv_timestamps)
-    plot(events, events_times)
+    new_advertisers, withdrawn_advertisers = get_advertisers(
+        events, new_advertisers, withdrawn_advertisers)
+    plot(events, events_times, new_advertisers, withdrawn_advertisers)
     compute_convergence(events_times)
 
 
@@ -329,12 +373,6 @@ def plot_graph(mac, tree, labels_list):
 
 
 def detect_flapping():
-    rd_to_anycast = {
-        "10.10.10.1:0 6": "10.10.100.1",
-        "10.10.10.2:0 6": "10.10.100.1",
-        "10.10.10.3:0 6": "10.10.100.2",
-        "10.10.10.4:0 6": "10.10.100.2",
-    }
     updates = retrieve_updates()["hits"]["hits"]
     updates = sorted(updates, key=lambda d: dateutil.parser.isoparse(
         d["_source"]["timestamp_received"]).timestamp())
@@ -493,7 +531,7 @@ def prettify_timestamp(timestamp):
 
 def plot_mac_mobility(mac_mm_counters, timestamps):
     plt.gca().xaxis.set_major_formatter(
-        mdates.DateFormatter("%M:%S"))  # ("%Y-%m-%d %H:%M:%S"))
+        mdates.DateFormatter("%H:%M"))  # ("%Y-%m-%d %H:%M:%S"))
     locator = mdates.HourLocator()
     plt.gca().xaxis.set_major_locator(locator)
     plt.xticks(rotation='vertical')
