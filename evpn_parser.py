@@ -86,13 +86,14 @@ class MessageBuilder:
             "mpls_label": mpls_label
         })
 
-    def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri):
+    def set_bgp_nlri_ip(self, route_distinguisher, esi, ethernet_tag_id, ip_prefix_length, ip_address, ip_gateway, mpls_label, nlri):
         self.message["bgp_message"]["update"].append({
             "evpn_route_type": "IP Prefix Route",
             "type": "New Route" if nlri else "Withdrawn",
             "route_distinguisher": route_distinguisher,
             "esi": esi,
             "ethernet_tag_id": ethernet_tag_id,
+            "ip_prefix_length": ip_prefix_length,
             "ip_address": ip_address,
             "ip_gateway": ip_gateway,
             "mpls_label": mpls_label
@@ -422,7 +423,7 @@ def mp_nlri(blob, pos, length, nlri, message):
             label, pos = pull_int(blob, pos, 3)
             mpls_label = mpls_label + " | " + str(label)
         message.set_bgp_nlri_ip(
-            route_distinguisher, esi, ethernet_tag_id, ip_address, ip_gateway, mpls_label, nlri)
+            route_distinguisher, esi, ethernet_tag_id, ip_prefix_length, ip_address, ip_gateway, mpls_label, nlri)
     else:
         print("Unsupported advertisement type: {}".format(
             evpn_route_types[evpn_type]))
