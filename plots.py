@@ -380,26 +380,58 @@ def detect_flapping():
 
 def sessions():
     events = dict()
-    for event in sorted(
-            map(lambda item: session_event_point(item), retrieve_opens()
-                ['hits']['hits'] + retrieve_ceases()['hits']['hits']),
-            key=lambda item: item[1]):
-        label = event[-1]
-        coordinates = event[:-1]
-        if label not in events:
-            events[label] = list()
-        events[label].append(coordinates)
+    timestamps = set()
+    for event_open in retrieve_opens()['hits']['hits']:
+        if not (event_open['_source']['bgp_message']['open']['peer_one']['bgp_identifier'].startswith('10.10.') and
+                event_open['_source']['bgp_message']['open']['peer_two']['bgp_identifier'].startswith('10.10.')):
+            continue
+        label = session_id(
+            event_open['_source']['bgp_message']['open']['peer_one']['bgp_identifier'],
+            event_open['_source']['bgp_message']['open']['peer_two']['bgp_identifier'])
+        event = (event_open['_source']['timestamp_received'], 'UP')
+        events[label] = [event] + events[label] if label in events else [event]
+        timestamps.add(event_open['_source']['timestamp_received'])
+    for event_cease in retrieve_ceases()['hits']['hits']:
+        # TODO check bgp_id
+        label = event_cease['_source']['bmp_header']['per_peer_header']['bgp_id']
+        if not label.startswith('10.10.'):
+            continue
+        for key in events:
+            if key.startswith(label + ' -') or key.endswith('- ' + label):
+                events[key].append(
+                    (event_cease['_source']['timestamp_received'], 'DOWN {}'.format(key)))
+                timestamps.add(event_cease['_source']['timestamp_received'])
 
-    events = sessions_expand_wildcards(events)
+    # ordering by timestamp
+    events = {key: sorted(value, key=lambda item: dateutil.parser.isoparse(
+        item[0]).timestamp()) for key, value in events.items()}
+
+    # stripping events types
+    max_len = 0
+    for key in events:
+        events_strip = []
+        events_prev = None
+        for event in events[key]:
+            if event[1] != events_prev:
+                events_strip.append(event)
+                events_prev = event[1]
+        events[key] = events_strip
+        max_len = len(events_strip) if len(events_strip) > max_len else max_len
+
+    # padding
+    timestamps = list(timestamps)[:max_len]
+    for key in events:
+        while len(events[key]) < len(timestamps):
+            events[key].append(events[key][-1])
 
     plt.gca().yaxis.set_major_formatter(mticker.FuncFormatter(sessions_status_ticks))
-    plt.xticks(numpy.arange(.0, 100, 5))
+    # plt.xticks(numpy.arange(.0, 100, 5))
     plt.yticks(numpy.arange(.0, 2, 1))
     plt.gca().invert_yaxis()
     for label in events:
-        if any(item.startswith('DOWN') for item in numpy.array(events[label])[:, 0]):
-            plt.scatter(numpy.array(events[label])[:, 1], numpy.array(
-                events[label])[:, 0], label=label)
+        if any(item.startswith('DOWN') for item in numpy.array(events[label])[:, 1]):
+            plt.scatter(list(timestamps), numpy.array(
+                events[label])[:, 1], label=label)
     plt.legend(loc='best')
     plt.xlabel('Time')
     plt.ylabel('Session status')
@@ -413,22 +445,6 @@ def sessions_status_ticks(val, pos):
     elif pos == 1:
         return 'DOWN'
     return ''
-
-
-def sessions_expand_wildcards(events):
-    for key in events:
-        if '*' in key:
-            peer = key.split()[2]
-            for subkey in events:
-                if peer in subkey:
-                    events[subkey].extend(events[key])
-    return {key: sorted(map(lambda item: ('{}: {}'.format(item[0], key), item[1]) if item[0] == 'DOWN' else item, value), key=lambda item: item[1]) for key, value in events.items() if not key.startswith('*')}
-
-
-def session_event_point(item):
-    if item['_source']['bgp_message']['message_type'] == 'OPEN':
-        return ('UP', prettify_timestamp(item['_source']['timestamp_received']), session_id(item['_source']['bgp_message']['open']['peer_one']['bgp_identifier'], item['_source']['bgp_message']['open']['peer_two']['bgp_identifier']))
-    return ('DOWN', prettify_timestamp(item['_source']['timestamp_received']), session_id(item['_source']['bmp_header']['per_peer_header']['bgp_id']))
 
 
 def session_id(peer_one, peer_two='*'):
