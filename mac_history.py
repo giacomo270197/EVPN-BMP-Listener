@@ -436,6 +436,98 @@ def prettify_timestamp(timestamp):
     return dateutil.parser.isoparse(timestamp).strftime("%m-%d %H:%M:%S.%f")[:-3]
 
 
+def sessions():
+    events = dict()
+    for event in sorted(
+            map(lambda item: session_event_point(item), retrieve_opens()
+                ['hits']['hits'] + retrieve_ceases()['hits']['hits']),
+            key=lambda item: item[0]):
+        label = event[-1]
+        coordinates = event[:-1]
+        if label not in events:
+            events[label] = list()
+        events[label].append(coordinates)
+
+    events = sessions_expand_wildcards(events)
+
+    plt.gca().yaxis.set_major_formatter(mticker.FuncFormatter(sessions_status_ticks))
+    plt.xticks(numpy.arange(.0, 100, 5))
+    plt.yticks(numpy.arange(.0, 2, 1))
+    plt.gca().invert_yaxis()
+    for label in events:
+        if any(item.startswith('DOWN') for item in numpy.array(events[label])[:, 1]):
+            plt.scatter(numpy.array(events[label])[:, 0], numpy.array(
+                events[label])[:, 1], label=label)
+    plt.legend(loc='best')
+    plt.xlabel('Time')
+    plt.ylabel('Session status')
+    plt.gcf().autofmt_xdate()
+    plt.show()
+
+
+def sessions_status_ticks(val, pos):
+    if pos == 0:
+        return 'UP'
+    elif pos == 1:
+        return 'DOWN'
+    return ''
+
+
+def sessions_expand_wildcards(events):
+    for key in events:
+        if '*' in key:
+            peer = key.split()[2]
+            for subkey in events:
+                if peer in subkey:
+                    events[subkey].extend(events[key])
+    return {key: sorted(map(lambda item: (item[0], '{}: {}'.format(item[1], key)) if item[1] == 'DOWN' else item, value), key=lambda item: item[0]) for key, value in events.items() if not key.startswith('*')}
+
+
+def session_event_point(item):
+    if item['_source']['bgp_message']['message_type'] == 'OPEN':
+        return (prettify_timestamp(item['_source']['timestamp_received']), 'UP', session_id(item['_source']['bgp_message']['open']['peer_one']['bgp_identifier'], item['_source']['bgp_message']['open']['peer_two']['bgp_identifier']))
+    return (prettify_timestamp(item['_source']['timestamp_received']), 'DOWN', session_id(item['_source']['bmp_header']['per_peer_header']['bgp_id']))
+
+
+def session_id(peer_one, peer_two='*'):
+    return ' - '.join(sorted([peer_one, peer_two]))
+
+
+def prefixes():
+    events = dict()
+    for event in retrieve_updates()['hits']['hits']:
+        for update in event['_source']['bgp_message']['update']:
+            if update['evpn_route_type'] != 'IP Prefix Route':
+                continue
+            if 'ip_prefix_length' not in update:
+                update['ip_prefix_length'] = 32
+            if ':' in update['ip_address']:
+                continue
+            timestamp = prettify_timestamp(
+                event['_source']['timestamp_received'])
+            label = '{}:{}/{}'.format(update['route_distinguisher'],
+                                      update['ip_address'], update['ip_prefix_length'])
+            if label not in events:
+                events[label] = list()
+            events[label].append(
+                (timestamp, event['_source']['bmp_header']['per_peer_header']['bgp_id']))
+
+    plt.xticks(numpy.arange(.0, 1000, 75))
+    plt.gca().invert_yaxis()
+    for label in events:
+        plt.scatter(numpy.array(events[label])[:, 0], numpy.array(
+            events[label])[:, 1], label=label)
+    plt.legend(loc='best')
+    plt.xlabel('Time')
+    plt.ylabel('Peer')
+    plt.gcf().autofmt_xdate()
+    plt.show()
+
+
+def prettify_timestamp(timestamp):
+    return dateutil.parser.isoparse(timestamp).strftime("%m-%d %H:%M:%S.%f")[:-3]
+
+
 if __name__ == "__main__":
     set_es_parameters()
     option = sys.argv[1]
@@ -452,3 +544,5 @@ if __name__ == "__main__":
         detect_flapping()
     elif option == "--sessions":
         sessions()
+    elif option == "--prefixes":
+        prefixes()
