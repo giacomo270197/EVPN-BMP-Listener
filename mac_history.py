@@ -37,10 +37,12 @@ class EventTree:
         for x in self.source_nodes:
             if node in x:
                 rm.append(x)
-        try:
-            self.source_nodes.pop(self.source_nodes.index(node))
-        except:
-            pass
+        for x in rm:
+            try:
+                self.source_nodes.pop(self.source_nodes.index(x))
+            except:
+                pass
+        return rm
 
     def add_to_to_add(self, node):
         self.nodes_to_add.append(node)
@@ -55,6 +57,16 @@ class EventTree:
                 self.nodes_to_add.pop(self.nodes_to_add.index(x))
             except:
                 pass
+        return rm
+
+    def in_source_nodes(self, node):
+        rm = []
+        for x in self.source_nodes:
+            if node in x:
+                rm.append(x)
+        if rm:
+            return True
+        return False
 
     def add_new_layer(self):
         if not self.source_nodes:
@@ -273,12 +285,44 @@ def find_rds(data):
     for x in data:
         for u in x["_source"]["bgp_message"]["update"]:
             rd = u["route_distinguisher"]
-            print(rd)
             if u["type"] == "New Route":
                 rds_new.append(rd)
             else:
                 rds_withdrawn.append(rd)
     return rds_new, rds_withdrawn
+
+
+def plot_graph(mac, tree, labels_list):
+    plt.plot()
+    plt.title = mac
+    pos = nx.spring_layout(tree.tree)
+    d = dict(tree.tree.degree)
+    labels = {}
+    for x, y in zip(d.keys(), labels_list):
+        labels[x] = y[-1] + " " + x[-8:]
+    all_nodes = list(d.keys())
+    active_nodes = tree.source_nodes
+    pos_red = pos.copy()
+    pos_blue = {}
+    for n in active_nodes:
+        all_nodes.pop(all_nodes.index(n))
+        pos_blue[n] = pos_red[n]
+        del(pos_red[n])
+    print(pos)
+    print(pos_red)
+    print(pos_blue)
+    print(all_nodes)
+    print(active_nodes)
+    nx.draw_networkx_nodes(tree.tree, pos_red, nodelist=all_nodes,
+                           node_size=len(all_nodes) * [500], node_color='r')
+    nx.draw_networkx_nodes(tree.tree, pos_blue, nodelist=active_nodes,
+                           node_size=len(active_nodes) * [500], node_color='b')
+    nx.draw_networkx_edges(tree.tree, pos, width=1.0, alpha=0.5)
+    pos_higher = {}
+    for k, v in pos.items():
+        pos_higher[k] = numpy.array([v[0], v[1]+0.1])
+    nx.draw_networkx_labels(tree.tree, pos_higher, labels, font_size=16)
+    plt.show()
 
 
 def detect_flapping():
@@ -293,28 +337,42 @@ def detect_flapping():
         d["_source"]["timestamp_received"]).timestamp())
     mac_events = find_macs_events(updates)
     for mac in mac_events.keys():
+        labels = []
         tree = EventTree()
+        # print(mac_events[mac])
         for event in mac_events[mac]:
             rds_new, rds_withdrawn = find_rds(event)
             rds_new = list(set([rd_to_anycast[x] for x in rds_new]))
             rds_withdrawn = list(set([rd_to_anycast[x]
                                       for x in rds_withdrawn]))
 
-            print("1, ", tree.nodes_to_add)
-            for rd in rds_new:
-                tree.add_to_to_add(rd[-1] + " ,  " + event[0]
-                                   ["_source"]["timestamp_received"][-15:-7])
-                tree.rm_from_source(rd)
-            for rd in rds_withdrawn:
-                tree.rm_from_to_add(rd)
+            if True:  # rds_new and rds_withdrawn:
+                print("##########################################")
+                print(tree.nodes_to_add)
+                print(tree.source_nodes)
+                if rds_new and not tree.in_source_nodes(rds_new[0]):
+                    for rd in rds_new:
+                        print(rd)
+                        x = rd + " ,  " + \
+                            event[0]["_source"]["timestamp_received"][-15:-7]
+                        tree.add_to_to_add(x)
+                        labels.append(rd)
+                tree.add_new_layer()
+                if rds_new and not tree.in_source_nodes(rds_new[0]):
+                    for rd in rds_new:
+                        print(rd)
+                        x = rd + " ,  " + \
+                            event[0]["_source"]["timestamp_received"][-15:-7]
+                        tree.add_to_source(x)
+                        tree.rm_from_to_add(rd)
+                for rd in rds_withdrawn:
+                    print(rd)
+                    tree.rm_from_source(rd)
+                print(tree.nodes_to_add)
+                print(tree.source_nodes)
+                print("##########################################")
 
-            tree.add_new_layer()
-
-        plt.plot()
-        plt.title = mac
-        pos = nx.spring_layout(tree.tree)
-        nx.draw(tree.tree, pos, with_labels=True)
-        plt.show()
+        plot_graph(mac, tree, labels)
 
 
 def sessions():
@@ -388,6 +446,9 @@ if __name__ == "__main__":
             tolerance = float(sys.argv[3])
         analyze_mac(mac)
     elif option == "--mac-flapping":
+        if len(sys.argv) > 2:
+            tolerance = float(sys.argv[2])
+            print(tolerance)
         detect_flapping()
     elif option == "--sessions":
         sessions()
