@@ -553,7 +553,7 @@ def run(blob, index):
         message_type, pos = pull_int(blob, pos, 1)
         message.set_bgp_basics(
             message_length, bgp_message_type[message_type])
-        total_length, bmp_begin, bmp_type = parse_bmp_header(
+        total_length, bmp_begin, _ = parse_bmp_header(
             blob[:tmp], message)
         if bgp_message_type[message_type] == "UPDATE":
             pos = update(blob, pos, message)
