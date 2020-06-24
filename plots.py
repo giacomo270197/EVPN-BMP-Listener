@@ -418,7 +418,6 @@ def detect_flapping():
 
 def sessions():
     events = dict()
-    timestamps = set()
     for event_open in retrieve_opens()['hits']['hits']:
         if not (event_open['_source']['bgp_message']['open']['peer_one']['bgp_identifier'].startswith('10.10.') and
                 event_open['_source']['bgp_message']['open']['peer_two']['bgp_identifier'].startswith('10.10.')):
@@ -426,41 +425,21 @@ def sessions():
         label = session_id(
             event_open['_source']['bgp_message']['open']['peer_one']['bgp_identifier'],
             event_open['_source']['bgp_message']['open']['peer_two']['bgp_identifier'])
-        event = (event_open['_source']['timestamp_received'], 'UP')
+        event = (dateutil.parser.isoparse(
+            event_open['_source']['timestamp_received']), 'UP')
         events[label] = [event] + events[label] if label in events else [event]
-        timestamps.add(event_open['_source']['timestamp_received'])
     for event_cease in retrieve_ceases()['hits']['hits']:
-        # TODO check bgp_id
         label = event_cease['_source']['bmp_header']['per_peer_header']['bgp_id']
         if not label.startswith('10.10.'):
             continue
         for key in events:
             if key.startswith(label + ' -') or key.endswith('- ' + label):
                 events[key].append(
-                    (event_cease['_source']['timestamp_received'], 'DOWN {}'.format(key)))
-                timestamps.add(event_cease['_source']['timestamp_received'])
+                    (dateutil.parser.isoparse(event_cease['_source']['timestamp_received']), 'DOWN {}'.format(key)))
 
     # ordering by timestamp
-    events = {key: sorted(value, key=lambda item: dateutil.parser.isoparse(
-        item[0]).timestamp()) for key, value in events.items()}
-
-    # stripping events types
-    max_len = 0
-    for key in events:
-        events_strip = []
-        events_prev = None
-        for event in events[key]:
-            if event[1] != events_prev:
-                events_strip.append(event)
-                events_prev = event[1]
-        events[key] = events_strip
-        max_len = len(events_strip) if len(events_strip) > max_len else max_len
-
-    # padding
-    timestamps = list(timestamps)[:max_len]
-    for key in events:
-        while len(events[key]) < len(timestamps):
-            events[key].append(events[key][-1])
+    events = {key: sorted(value, key=lambda item: item[0].timestamp())
+              for key, value in events.items()}
 
     plt.gca().yaxis.set_major_formatter(mticker.FuncFormatter(sessions_status_ticks))
     # plt.xticks(numpy.arange(.0, 100, 5))
@@ -468,7 +447,10 @@ def sessions():
     plt.gca().invert_yaxis()
     for label in events:
         if any(item.startswith('DOWN') for item in numpy.array(events[label])[:, 1]):
-            plt.scatter(list(timestamps), numpy.array(
+            # if label.startswith("10.10.10.1"):
+            # print(len(events[label]))
+            plt.plot(numpy.array(
+                events[label])[:, 0], numpy.array(
                 events[label])[:, 1], label=label)
     plt.legend(loc='best')
     plt.xlabel('Time')
